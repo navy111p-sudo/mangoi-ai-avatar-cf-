@@ -35,6 +35,11 @@
     font-size:16px; background:rgba(255,255,255,0.95); outline:none; }
   #send-btn { background:#ffcc00; color:#1a1a1a; border:none; border-radius:12px; padding:0 18px; font-weight:700; cursor:pointer; font-size:15px; }
   #send-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  #mic-btn { width:44px; height:44px; flex:0 0 auto; border:none; border-radius:50%;
+    background:rgba(255,255,255,0.92); color:#1a1a1a; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0; }
+  #mic-btn.listening { background:#e53935; color:#fff; animation:micPulse 1s infinite; }
+  @keyframes micPulse { 0%{ box-shadow:0 0 0 0 rgba(229,57,53,0.6); } 70%{ box-shadow:0 0 0 10px rgba(229,57,53,0); } 100%{ box-shadow:0 0 0 0 rgba(229,57,53,0); } }
 </style>
 </head>
 <body>
@@ -62,6 +67,7 @@
     <div id="subtitle">안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!</div>
     <div id="chat-area">
       <input id="chat-input" type="text" placeholder="궁금한 점을 물어보세요!" autocomplete="off" />
+      <button id="mic-btn" type="button" aria-label="음성으로 질문하기" title="음성으로 질문하기">🎤</button>
       <button id="send-btn">전송</button>
     </div>
   </div>
@@ -172,6 +178,7 @@
 
   function speak(text){
     lastAnswer=text;
+    stopListening();                            // 답변 재생 시작 → 듣기 중이면 정지(에코 방지)
     stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
     var mySeq=speakSeq;                         // 이 호출의 시퀀스
     var ac=("AbortController" in window)?new AbortController():null;
@@ -265,6 +272,42 @@
     if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
     else { win.classList.add("hidden"); }
   });
+
+  // === 음성 입력(마이크) — ko-KR 음성인식 ===
+  var micBtn=document.getElementById("mic-btn");
+  var recog=null, listening=false, autoSend=true;
+  function setListening(on){ listening=on; if(micBtn) micBtn.classList.toggle("listening", on); }
+  function stopListening(){ if(recog && listening){ try{ recog.stop(); }catch(e){} } }
+  (function initMic(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR || !micBtn){ if(micBtn) micBtn.style.display="none"; return; }   // 미지원(iOS 등) → 버튼 숨김
+    recog = new SR();
+    recog.lang="ko-KR"; recog.interimResults=true; recog.continuous=false; recog.maxAlternatives=1;
+    recog.onstart=function(){ setListening(true); };
+    recog.onend=function(){ setListening(false); };
+    recog.onerror=function(e){
+      setListening(false);
+      var err=e&&e.error;
+      if(err==="not-allowed" || err==="service-not-allowed"){
+        subtitle.textContent="마이크 권한이 필요해요. 브라우저에서 허용해 주세요.";
+      } // no-speech / aborted 등은 무시
+    };
+    recog.onresult=function(e){
+      var txt="", finalTxt="";
+      for(var i=e.resultIndex; i<e.results.length; i++){
+        var r=e.results[i]; txt += r[0].transcript;
+        if(r.isFinal) finalTxt += r[0].transcript;
+      }
+      input.value = txt;                 // 중간/최종 결과 실시간 반영
+      notifyTyping();                    // 영상 메시지 페이드아웃 트리거(재사용)
+      if(finalTxt && autoSend){ try{ recog.stop(); }catch(e){} send(); }  // 최종 → 자동 전송
+    };
+    micBtn.addEventListener("click", function(){
+      if(listening){ try{ recog.stop(); }catch(e){} return; }
+      stopSpeaking();                    // 에코 방지: 말하는 중이면 정지
+      try{ recog.start(); }catch(e){}    // 이미 시작됐으면 throw → 무시
+    });
+  })();
 </script>
 </body>
 </html>
