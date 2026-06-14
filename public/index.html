@@ -246,7 +246,7 @@
   // 코드 → 한국어 라벨/동의어 (모델이 태그를 빠뜨리고 본문에 흘렸을 때 추정)
   var CODE_LABELS_KO={ "report":["평가표","성적표"], "lesson-enter":["수업 입장","로비"], "lesson-change":["수업 연기","연기/변경","수업 변경"],
     "leveltest":["레벨테스트","레벨 테스트"], "library":["자료실","교재"], "mypage":["마이페이지"], "payment":["결제","수강권"],
-    "booking":["수업 신청","예약"], "precheck":["수업 진단"], "teachers":["교사 소개"], "review-quiz":["복습퀴즈"], "all-menu":["전체메뉴"] };
+    "booking":["수업 신청","예약"], "precheck":["수업 진단"], "teachers":["교사 소개","선생님 소개","강사"], "review-quiz":["복습퀴즈","복습 퀴즈","복습","퀴즈"], "all-menu":["전체메뉴","전체 메뉴","메뉴"] };
   var HYPHEN_CODES=["lesson-enter","lesson-change","review-quiz","all-menu","leveltest","mypage","precheck"];
   function parseGo(raw){
     var go=null, m=raw.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/i);
@@ -290,9 +290,23 @@
     else { subtitle.textContent="네, "+lb+" 페이지를 열어드릴게요! 😊"; speak("네, "+lb+" 페이지를 열어드릴게요!"); }
     openParentPage(go); pendingGo=null; input.focus();
   }
-  function norm(s){ return (s||"").replace(/[!.?~\s]/g,"").toLowerCase(); }
-  function isYes(s){ return ["응","어","네","넵","예","옙","그래","그래요","좋아","좋아요","열어","열어줘","열어주세요","열어줄래","보여줘","보여주세요","가자","이동","ㅇㅇ","ㅇ","ok","okay","yes","y","네네","응응"].indexOf(norm(s))>=0; }
-  function isNo(s){ return ["아니","아니요","아니오","노","괜찮아","괜찮아요","됐어","됐어요","싫어","나중에","no","n","ㄴㄴ","ㄴ"].indexOf(norm(s))>=0; }
+  function norm(s){ return (s||"").toLowerCase().replace(/[^a-z0-9가-힣ㄱ-ㅎ]/g,""); }  // 소문자+공백/문장부호/이모지 제거
+  function isNo(s){ var n=norm(s); if(!n) return false;
+    return /^(아니|아뇨|싫|괜찮|됐|나중|노|no|nope|ㄴ)/.test(n); }
+  // 짧고 모호한 토큰은 정확일치만, 그 외는 포함매칭으로 "응 그래/네 열어줘/그래그래" 등 흡수
+  var YES_EXACT=["어","네","예","go","k","ok","y","ㅇ","음"];
+  var YES_LIST=["응","응응","네네","어어","넵","예스","옙","그래","그래요","그래그래","그러자","좋아","좋아요","좋아여",
+    "오케이","오키","오케","콜","맞아","맞아요","부탁","해줘","해주세요","열어","열어줘","열어주세요","열어줄래",
+    "가자","가줘","이동","보여줘","보여주세요","고마","고맙","감사","ㅇㅇ","ㅇㅋ","ㄱㄱ",
+    "okay","okey","yes","yeah","yep","yup","sure","please","openit"];
+  function isYes(s){
+    var n=norm(s); if(!n) return false;
+    if(isNo(s)) return false;                         // 부정 먼저
+    if(/^(안|못|말고)/.test(n)) return false;          // "안 열어/못 열어" 등
+    if(YES_EXACT.indexOf(n)>=0) return true;           // 짧은 모호 토큰 정확일치
+    for(var i=0;i<YES_LIST.length;i++){ if(n.indexOf(YES_LIST[i])>=0) return true; }  // 포함매칭
+    return false;
+  }
   function openParentPage(go){ if(window.parent!==window){ window.parent.postMessage({type:"mangoi-open", go:go}, "*"); } }
 
   function deliver(ans, go){
