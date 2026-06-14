@@ -90,6 +90,7 @@
 
   var lastAnswer="";
   var lastBlobUrl=null;
+  var uiLang="ko";
   function startMouth(){
     speakingDot.classList.remove("hidden");
     if(ensureLipGraph()){
@@ -104,6 +105,8 @@
     if(lipRAF){ try{ cancelAnimationFrame(lipRAF); }catch(e){} lipRAF=0; }
     try{ video.pause(); }catch(e){}
   }
+  // 브라우저 내장 음성(영어/폴백)용 입모양: 오디오 분석 없이 영상 루프 재생
+  function startMouthPlain(){ speakingDot.classList.remove("hidden"); try{ video.play(); }catch(e){} }
 
   // === 음성: 1순위 타입캐스트(서버), 실패 시 브라우저 음성 ===
   var audioEl = new Audio();
@@ -152,16 +155,18 @@
     lipRAF=requestAnimationFrame(lipLoop);
   }
 
-  var koVoice=null;
+  var koVoice=null, enVoice=null;
   function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
-    koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null; }
+    koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null;
+    enVoice=vs.filter(function(v){return /^en/i.test(v.lang);})[0]||null; }
   if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
   function speakBrowser(text){
-    if(!window.speechSynthesis){ startMouth(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
+    if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05;
-    u.onstart=startMouth; u.onend=stopMouth; u.onerror=stopMouth;
+    if(uiLang==="en"){ u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=1.0; u.pitch=1.0; }
+    else { u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05; }
+    u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
     speechSynthesis.speak(u);
   }
 
@@ -180,6 +185,7 @@
     lastAnswer=text;
     stopListening();                            // 답변 재생 시작 → 듣기 중이면 정지(에코 방지)
     stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
+    if(uiLang==="en"){ speakBrowser(text); return; }   // 영어 = 브라우저 내장 음성(speechSynthesis)
     var mySeq=speakSeq;                         // 이 호출의 시퀀스
     var ac=("AbortController" in window)?new AbortController():null;
     ttsAbort=ac;
@@ -206,9 +212,32 @@
   window.addEventListener("message", function(ev){
     var d=ev.data;
     if(d==="mangoi-stop" || (d && d.type==="mangoi-stop")) stopSpeaking();
+    if(d && d.type==="mangoi-lang" && d.lang) applyLang(d.lang);
   });
   document.addEventListener("visibilitychange", function(){ if(document.hidden) stopSpeaking(); });
   window.addEventListener("pagehide", stopSpeaking);
+
+  // === 다국어(EN/KO): 부모 사이트 언어에 맞춰 UI 문구·인식·음성 전환 ===
+  var I18N={
+    ko:{ ph:"궁금한 점을 물어보세요!", send:"전송", mic:"음성으로 질문하기",
+         greet:"안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!" },
+    en:{ ph:"Ask me anything!", send:"Send", mic:"Ask by voice",
+         greet:"Hi! I'm Mangoi's AI assistant 😊 Ask me anything!" }
+  };
+  var DEFAULT_GREETS=[I18N.ko.greet, I18N.en.greet];
+  function applyLang(l){
+    if(l!=="en" && l!=="ko") return;
+    if(l===uiLang) return;
+    uiLang=l;
+    try{ stopSpeaking(); }catch(e){}            // 전환 시 진행 중 음성 정지
+    try{ stopListening(); }catch(e){}            //          진행 중 인식 정지
+    var t=I18N[uiLang];
+    if(input) input.placeholder=t.ph;
+    if(typeof sendBtn!=="undefined" && sendBtn) sendBtn.textContent=t.send;
+    if(typeof micBtn!=="undefined" && micBtn) micBtn.setAttribute("aria-label", t.mic);
+    if(typeof recog!=="undefined" && recog) recog.lang=(uiLang==="en")?"en-US":"ko-KR";
+    if(subtitle && DEFAULT_GREETS.indexOf((subtitle.textContent||"").trim())>=0){ subtitle.textContent=t.greet; }
+  }
   // === 페이지 바로 열기 (아바타가 제안 → 사용자가 '네' 하면 홈페이지 메뉴 열기) ===
   var pendingGo=null;
   var GO_LABELS={ "lesson-enter":"수업 입장", "lesson-change":"연기/변경", "leveltest":"레벨테스트", "library":"자료실(교재)", "report":"평가표", "mypage":"마이페이지",
@@ -251,7 +280,7 @@
     }
     input.value=""; sendBtn.disabled=true; subtitle.textContent="답변을 준비하고 있어요...";
     fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({message:msg}) })
+      body:JSON.stringify({message:msg, lang:uiLang}) })
       .then(function(r){ return r.json(); })
       .then(function(d){ deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?", d && d.go); })
       .catch(function(){ deliver("연결이 잠깐 끊겼어요. 다시 시도해 주세요."); })
