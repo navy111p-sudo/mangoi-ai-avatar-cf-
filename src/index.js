@@ -104,6 +104,16 @@ function extractGo(text) {
   return { answer: clean || "음, 다시 한 번 말씀해 주시겠어요?", go: go };
 }
 
+// 한글(가-힣) 포함 여부 — 번들러의 유니코드 리터럴 처리에 영향받지 않도록 코드포인트로 검사
+function hasKorean(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xAC00 && c <= 0xD7A3) return true;   // 한글 음절
+    if (c >= 0x3130 && c <= 0x318F) return true;   // 한글 자모(ㄱ-ㅎ 등)
+  }
+  return false;
+}
+
 async function handleChat(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method === "GET") return json({ status: "ok", note: "POST {\"message\":\"...\"}" });
@@ -112,7 +122,7 @@ async function handleChat(request, env) {
   let body = {};
   try { body = await request.json(); } catch (_) {}
   const message = ((body && body.message) || "").toString().trim().slice(0, 1000);
-  const lang = /[가-힣]/.test(message) ? "ko" : "en";   // 입력 메시지 언어 자동 감지(토글과 무관)
+  const lang = hasKorean(message) ? "ko" : "en";   // 입력 메시지 언어 자동 감지(토글과 무관)
   if (!message) return json({ error: "message 가 비어 있습니다." }, 400);
 
   try {
