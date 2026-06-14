@@ -157,13 +157,8 @@ async function handleChat(request, env) {
   try {
     const r = await callAI(message, env, lang);
     const parsed = extractGo(r.answer);
-    const msgGo = detectGo(message);
-    let go = parsed.go || msgGo || detectGo(parsed.answer);  // 태그 없으면 키워드로 폴백
-    // 모델이 precheck(수업 진단)↔leveltest(레벨테스트)를 혼동했으면 사용자 메시지 의도로 교정
-    if (msgGo && go !== msgGo &&
-        ((go === "leveltest" && msgGo === "precheck") || (go === "precheck" && msgGo === "leveltest"))) {
-      go = msgGo;
-    }
+    // 사용자 메시지의 명시적 키워드를 최우선(모델 태그가 진단/점검 등에서 자주 혼동) → 없으면 태그/답변으로 폴백
+    const go = detectGo(message) || parsed.go || detectGo(parsed.answer);
     const answer = stripLeakedCodes(parsed.answer);
     return json({ answer, go });
   } catch (e) {
