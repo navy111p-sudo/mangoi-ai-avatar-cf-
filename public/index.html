@@ -52,7 +52,7 @@
 
   <div id="avatar-window">
     <div id="toolbar">
-      <span class="title">💁‍♀️ 망고아이 상담직원</span>
+      <span class="title" id="hdr-title">💁‍♀️ 망고아이 상담직원</span>
       <span class="controls">
         <button id="replay-btn" title="음성 다시듣기">🔁</button>
         <button id="close-btn" title="닫기">❌</button>
@@ -219,19 +219,20 @@
 
   // === 다국어(EN/KO): 부모 사이트 언어에 맞춰 UI 문구·인식·음성 전환 ===
   var I18N={
-    ko:{ ph:"궁금한 점을 물어보세요!", send:"전송", mic:"음성으로 질문하기",
+    ko:{ hdr:"💁‍♀️ 망고아이 상담직원", ph:"궁금한 점을 물어보세요!", send:"전송", mic:"음성으로 질문하기",
          greet:"안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!" },
-    en:{ ph:"Ask me anything!", send:"Send", mic:"Ask by voice",
+    en:{ hdr:"💁‍♀️ Mango AI Consultant", ph:"Ask me anything!", send:"Send", mic:"Ask by voice",
          greet:"Hi! I'm Mangoi's AI assistant 😊 Ask me anything!" }
   };
   var DEFAULT_GREETS=[I18N.ko.greet, I18N.en.greet];
   function applyLang(l){
     if(l!=="en" && l!=="ko") return;
-    if(l===uiLang) return;
+    var changed=(l!==uiLang);
     uiLang=l;
-    try{ stopSpeaking(); }catch(e){}            // 전환 시 진행 중 음성 정지
-    try{ stopListening(); }catch(e){}            //          진행 중 인식 정지
+    if(changed){ try{ stopSpeaking(); }catch(e){} try{ stopListening(); }catch(e){} }  // 실제 전환 시에만 음성/인식 정지
     var t=I18N[uiLang];
+    // 매번 전체 UI를 현재 언어로 강제 정렬(패널 열기/iframe load/토글 어느 시점이든 일치 보장)
+    var hdr=document.getElementById("hdr-title"); if(hdr) hdr.textContent=t.hdr;
     if(input) input.placeholder=t.ph;
     if(typeof sendBtn!=="undefined" && sendBtn) sendBtn.textContent=t.send;
     if(typeof micBtn!=="undefined" && micBtn) micBtn.setAttribute("aria-label", t.mic);
