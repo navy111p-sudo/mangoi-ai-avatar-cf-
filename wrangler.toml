@@ -8,6 +8,10 @@ compatibility_date = "2025-05-01"
 directory = "./public"
 binding = "ASSETS"
 
+# Cloudflare Workers AI (외부 키 불필요)
+[ai]
+binding = "AI"
+
 # 환경변수(시크릿)는 코드/깃허브에 적지 않습니다.
 # 운영 키:  Cloudflare 대시보드 → 이 Worker → Settings → Variables and Secrets → GEMINI_API_KEY
 #   또는:  npx wrangler secret put GEMINI_API_KEY
