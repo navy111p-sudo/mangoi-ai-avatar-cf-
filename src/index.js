@@ -112,7 +112,7 @@ async function handleChat(request, env) {
   let body = {};
   try { body = await request.json(); } catch (_) {}
   const message = ((body && body.message) || "").toString().trim().slice(0, 1000);
-  const lang = (body && body.lang === "en") ? "en" : "ko";
+  const lang = /[가-힣]/.test(message) ? "ko" : "en";   // 입력 메시지 언어 자동 감지(토글과 무관)
   if (!message) return json({ error: "message 가 비어 있습니다." }, 400);
 
   try {
