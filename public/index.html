@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>망고아이 AI 상담직원</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:transparent; }
+  /* iframe / 모바일 화면을 꽉 채우는 반응형 레이아웃 */
+  #avatar-window { position:fixed; inset:0; width:100%; height:100%;
+    background:rgba(20,20,25,0.96); border-radius:18px; overflow:hidden;
+    display:flex; flex-direction:column; }
+  #avatar-window.hidden { display:none; }
+  #toolbar { display:flex; align-items:center; justify-content:space-between; padding:10px 12px;
+    background:rgba(255,204,0,0.12); border-bottom:1px solid rgba(255,204,0,0.35); flex:0 0 auto; }
+  #toolbar .title { color:#ffcc00; font-weight:700; font-size:14px; }
+  #toolbar .controls button { background:transparent; border:none; cursor:pointer; font-size:16px;
+    margin-left:4px; padding:2px 6px; border-radius:6px; }
+  #toolbar .controls button:hover { background:rgba(255,255,255,0.12); }
+  #subtitle { color:#fff; font-size:14px; line-height:1.6; padding:16px 14px; min-height:18px;
+    flex:1 1 auto; overflow-y:auto; background:rgba(0,0,0,0.30); }
+  #speaking-dot { display:inline-block; margin-bottom:8px; background:rgba(0,0,0,0.4); color:#ffcc00;
+    font-size:11px; padding:4px 9px; border-radius:12px; }
+  #speaking-dot.hidden { display:none; }
+  #chat-area { display:flex; gap:8px; padding:12px; background:rgba(0,0,0,0.25); flex:0 0 auto; }
+  #chat-input { flex:1; border:1px solid rgba(255,204,0,0.5); border-radius:12px; padding:11px 12px;
+    font-size:16px; background:rgba(255,255,255,0.95); outline:none; }
+  #send-btn { background:#ffcc00; color:#1a1a1a; border:none; border-radius:12px; padding:0 18px; font-weight:700; cursor:pointer; font-size:15px; }
+  #send-btn:disabled { opacity:0.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+  <div id="avatar-window">
+    <div id="toolbar">
+      <span class="title">💁‍♀️ 망고아이 상담직원</span>
+      <span class="controls">
+        <button id="replay-btn" title="음성 다시듣기">🔁</button>
+        <button id="close-btn" title="닫기">❌</button>
+      </span>
+    </div>
+    <div id="subtitle">
+      <span id="speaking-dot" class="hidden">🔊 말하는 중...</span>
+      <div id="subtitle-text">안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!</div>
+    </div>
+    <div id="chat-area">
+      <input id="chat-input" type="text" placeholder="궁금한 점을 물어보세요!" autocomplete="off" />
+      <button id="send-btn">전송</button>
+    </div>
+  </div>
+
+<script>
+  var subtitle=document.getElementById("subtitle-text");
+  var input=document.getElementById("chat-input");
+  var sendBtn=document.getElementById("send-btn");
+  var replayBtn=document.getElementById("replay-btn");
+  var closeBtn=document.getElementById("close-btn");
+  var win=document.getElementById("avatar-window");
+  var speakingDot=document.getElementById("speaking-dot");
+
+  var lastAnswer="";
+
+  // 방문자 브라우저의 한국어 음성(TTS)으로 답변을 읽어줍니다.
+  var koVoice=null;
+  function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+    koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null; }
+  if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+  function speak(text){
+    lastAnswer=text;
+    if(!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text);
+    u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05;
+    u.onstart=function(){ speakingDot.classList.remove("hidden"); };
+    u.onend=function(){ speakingDot.classList.add("hidden"); };
+    speechSynthesis.speak(u);
+  }
+  function deliver(ans){ subtitle.textContent=ans; speak(ans); }
+
+  // 서버(/api/chat)에 질문을 보냄 → 키는 서버에만 있으므로 안전.
+  function send(){
+    var msg=input.value.trim(); if(!msg) return;
+    input.value=""; sendBtn.disabled=true; subtitle.textContent="답변을 준비하고 있어요...";
+    fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:msg}) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?"); })
+      .catch(function(){ deliver("연결이 잠깐 끊겼어요. 다시 시도해 주세요."); })
+      .then(function(){ sendBtn.disabled=false; input.focus(); });
+  }
+
+  sendBtn.addEventListener("click",send);
+  input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+  replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); });
+  closeBtn.addEventListener("click",function(){
+    try{speechSynthesis.cancel();}catch(e){}
+    // iframe 안에 있으면 부모 창에 닫기 신호를 보냄(위젯이 접힘)
+    if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
+    else { win.classList.add("hidden"); }
+  });
+</script>
+</body>
+</html>

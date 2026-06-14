@@ -1,0 +1,13 @@
+{
+  "name": "mangoi-ai-avatar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "망고아이 AI 상담직원 — Cloudflare Pages + Functions + Gemini",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}
