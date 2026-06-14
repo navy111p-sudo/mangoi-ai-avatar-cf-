@@ -115,13 +115,13 @@ function hasKorean(s) {
 const GO_KEYWORDS = [
   ["lesson-enter", ["수업 입장","수업입장","입장","로비","enter class","enter the class","class lobby","join the class","join class","enter my class"]],
   ["lesson-change", ["수업 연기","연기","수업 변경","변경","수업 취소","취소","reschedule","postpone","change my class","change class","cancel class","cancel my class"]],
-  ["leveltest", ["레벨테스트","레벨 테스트","실력 진단","level test","leveltest","placement"]],
+  ["precheck", ["수업 진단","수업진단","사전 진단","사전점검","사전 점검","수업 전 점검","수업전점검","precheck","pre-check","class diagnosis"]],
+  ["leveltest", ["레벨테스트","레벨 테스트","실력테스트","실력 진단","level test","leveltest","placement"]],
   ["report", ["평가표","성적표","성적","report card","grades"]],
   ["payment", ["결제","수강권","구매","payment","purchase","buy a pass","buy passes"]],
   ["library", ["자료실","교재","수업 자료","library","textbook","materials"]],
   ["mypage", ["마이페이지","마이 페이지","my page","mypage"]],
   ["booking", ["수업 신청","수업신청","예약","book a class","booking","reserve a class"]],
-  ["precheck", ["수업 진단","사전 진단","precheck","class diagnosis"]],
   ["teachers", ["교사 소개","선생님 소개","teacher introduction","teachers","instructors"]],
   ["review-quiz", ["복습퀴즈","복습 퀴즈","review quiz","review-quiz"]],
   ["all-menu", ["전체메뉴","전체 메뉴","all menu","full menu","all-menu"]],
@@ -157,7 +157,13 @@ async function handleChat(request, env) {
   try {
     const r = await callAI(message, env, lang);
     const parsed = extractGo(r.answer);
-    const go = parsed.go || detectGo(message) || detectGo(parsed.answer);  // 태그 없으면 키워드로 폴백
+    const msgGo = detectGo(message);
+    let go = parsed.go || msgGo || detectGo(parsed.answer);  // 태그 없으면 키워드로 폴백
+    // 모델이 precheck(수업 진단)↔leveltest(레벨테스트)를 혼동했으면 사용자 메시지 의도로 교정
+    if (msgGo && go !== msgGo &&
+        ((go === "leveltest" && msgGo === "precheck") || (go === "precheck" && msgGo === "leveltest"))) {
+      go = msgGo;
+    }
     const answer = stripLeakedCodes(parsed.answer);
     return json({ answer, go });
   } catch (e) {
