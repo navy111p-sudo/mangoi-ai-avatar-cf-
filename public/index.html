@@ -243,11 +243,52 @@
   var GO_LABELS={ "lesson-enter":"수업 입장", "lesson-change":"연기/변경", "leveltest":"레벨테스트", "library":"자료실(교재)", "report":"평가표", "mypage":"마이페이지",
     "payment":"결제", "booking":"수업 신청", "precheck":"수업 진단", "teachers":"교사 소개",
     "review-quiz":"복습퀴즈", "all-menu":"전체메뉴" };
+  // 코드 → 한국어 라벨/동의어 (모델이 태그를 빠뜨리고 본문에 흘렸을 때 추정)
+  var CODE_LABELS_KO={ "report":["평가표","성적표"], "lesson-enter":["수업 입장","로비"], "lesson-change":["수업 연기","연기/변경","수업 변경"],
+    "leveltest":["레벨테스트","레벨 테스트"], "library":["자료실","교재"], "mypage":["마이페이지"], "payment":["결제","수강권"],
+    "booking":["수업 신청","예약"], "precheck":["수업 진단"], "teachers":["교사 소개"], "review-quiz":["복습퀴즈"], "all-menu":["전체메뉴"] };
+  var HYPHEN_CODES=["lesson-enter","lesson-change","review-quiz","all-menu","leveltest","mypage","precheck"];
   function parseGo(raw){
     var go=null, m=raw.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/i);
     if(m){ var c=m[1].toLowerCase().replace(/_/g,"-"); if(GO_LABELS[c]) go=c; }
     raw=raw.replace(/\[\[\s*GO\s*:[^\]]*\]\]/ig,"").replace(/\[\[\s*GO[^\]]*\]?\]?/ig,"").trim();
+    // 폴백①: 본문에 흘린 코드 토큰(괄호로 감싼 코드 또는 하이픈 코드) 감지 + 제거
+    if(!go){
+      var all=Object.keys(GO_LABELS);
+      for(var i=0;i<all.length;i++){
+        var code=all[i];
+        var reWrap=new RegExp("[\\(\\[]\\s*"+code+"\\s*[\\)\\]]","i");
+        var reTok=new RegExp("(^|[^a-zA-Z])"+code+"([^a-zA-Z]|$)","i");
+        if(reWrap.test(raw) || (HYPHEN_CODES.indexOf(code)>=0 && reTok.test(raw))){
+          go=code;
+          raw=raw.replace(new RegExp("[\\(\\[]\\s*"+code+"\\s*[\\)\\]]","ig"),"")
+                 .replace(new RegExp("(^|[^a-zA-Z])"+code+"([^a-zA-Z]|$)","ig"),"$1$2");
+          break;
+        }
+      }
+      raw=raw.replace(/\s{2,}/g," ").replace(/\s+([.,!?])/g,"$1").trim();
+    }
+    // 폴백②: 한국어 라벨로 추정(자연스러운 한국어라 텍스트는 그대로 유지)
+    if(!go){
+      for(var code2 in CODE_LABELS_KO){ var ls=CODE_LABELS_KO[code2];
+        for(var j=0;j<ls.length;j++){ if(raw.indexOf(ls[j])>=0){ go=code2; break; } }
+        if(go) break; }
+    }
     return { text:raw, go:go };
+  }
+  function hasOpenVerb(s){ return /(열어|보여|가줘|바로가|이동|open|show|go to|take me)/i.test(s||""); }
+  function detectGoText(s){            // 텍스트에서 타깃 코드 추정(라벨/코드)
+    if(!s) return null;
+    for(var code in CODE_LABELS_KO){ var ls=CODE_LABELS_KO[code]; for(var i=0;i<ls.length;i++){ if(s.indexOf(ls[i])>=0) return code; } }
+    var low=s.toLowerCase(), all=Object.keys(GO_LABELS);
+    for(var j=0;j<all.length;j++){ var re=new RegExp("(^|[^a-z])"+all[j]+"([^a-z]|$)","i"); if(re.test(low)) return all[j]; }
+    return null;
+  }
+  function openGoNow(go){
+    var lb=GO_LABELS[go]||""; input.value="";
+    if(uiLang==="en"){ subtitle.textContent="Opening the page for you. 😊"; speak("Opening the page for you."); }
+    else { subtitle.textContent="네, "+lb+" 페이지를 열어드릴게요! 😊"; speak("네, "+lb+" 페이지를 열어드릴게요!"); }
+    openParentPage(go); pendingGo=null; input.focus();
   }
   function norm(s){ return (s||"").replace(/[!.?~\s]/g,"").toLowerCase(); }
   function isYes(s){ return ["응","어","네","넵","예","옙","그래","그래요","좋아","좋아요","열어","열어줘","열어주세요","열어줄래","보여줘","보여주세요","가자","이동","ㅇㅇ","ㅇ","ok","okay","yes","y","네네","응응"].indexOf(norm(s))>=0; }
@@ -262,6 +303,8 @@
 
   function send(){
     var msg=input.value.trim(); if(!msg) return;
+    // "X 열어줘"처럼 열기동사+명확한 타깃을 한 번에 말하면 되묻지 않고 즉시 열기
+    if(hasOpenVerb(msg)){ var gNow=detectGoText(msg); if(gNow){ openGoNow(gNow); return; } }
     // 페이지 열기 제안에 대한 응답 먼저 처리
     if(pendingGo){
       if(isYes(msg)){

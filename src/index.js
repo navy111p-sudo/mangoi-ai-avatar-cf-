@@ -111,6 +111,38 @@ function hasKorean(s) {
   return false;
 }
 
+// 사용자 메시지/답변의 타깃 키워드 → GO 코드 (모델이 태그를 빠뜨렸을 때 서버 폴백)
+const GO_KEYWORDS = [
+  ["lesson-enter", ["수업 입장","수업입장","입장","로비","enter class","enter the class","class lobby","join the class","join class","enter my class"]],
+  ["lesson-change", ["수업 연기","연기","수업 변경","변경","수업 취소","취소","reschedule","postpone","change my class","change class","cancel class","cancel my class"]],
+  ["leveltest", ["레벨테스트","레벨 테스트","실력 진단","level test","leveltest","placement"]],
+  ["report", ["평가표","성적표","성적","report card","grades"]],
+  ["payment", ["결제","수강권","구매","payment","purchase","buy a pass","buy passes"]],
+  ["library", ["자료실","교재","수업 자료","library","textbook","materials"]],
+  ["mypage", ["마이페이지","마이 페이지","my page","mypage"]],
+  ["booking", ["수업 신청","수업신청","예약","book a class","booking","reserve a class"]],
+  ["precheck", ["수업 진단","사전 진단","precheck","class diagnosis"]],
+  ["teachers", ["교사 소개","선생님 소개","teacher introduction","teachers","instructors"]],
+  ["review-quiz", ["복습퀴즈","복습 퀴즈","review quiz","review-quiz"]],
+  ["all-menu", ["전체메뉴","전체 메뉴","all menu","full menu","all-menu"]],
+];
+function detectGo(text) {
+  if (!text) return null;
+  const low = text.toLowerCase();
+  for (const [code, kws] of GO_KEYWORDS) {
+    for (const kw of kws) { if (low.indexOf(kw.toLowerCase()) >= 0) return code; }
+  }
+  return null;
+}
+// 본문에 흘린 코드 토큰 정리: 괄호/대괄호로 감싼 코드 + 자연어가 아닌 하이픈/합성 코드만 안전 제거
+const HYPHEN_CODES = ["lesson-enter","lesson-change","review-quiz","all-menu","leveltest","mypage","precheck"];
+function stripLeakedCodes(text) {
+  let t = text || "";
+  t = t.replace(/[\(\[]\s*(lesson-enter|lesson-change|leveltest|library|report|mypage|payment|booking|precheck|teachers|review-quiz|all-menu)\s*[\)\]]/gi, "");
+  HYPHEN_CODES.forEach(function (c) { t = t.replace(new RegExp("(^|[^a-zA-Z])" + c + "([^a-zA-Z]|$)", "gi"), "$1$2"); });
+  return t.replace(/\s{2,}/g, " ").replace(/\s+([.,!?])/g, "$1").trim();
+}
+
 async function handleChat(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method === "GET") return json({ status: "ok", note: "POST {\"message\":\"...\"}" });
@@ -125,7 +157,9 @@ async function handleChat(request, env) {
   try {
     const r = await callAI(message, env, lang);
     const parsed = extractGo(r.answer);
-    return json({ answer: parsed.answer, go: parsed.go });
+    const go = parsed.go || detectGo(message) || detectGo(parsed.answer);  // 태그 없으면 키워드로 폴백
+    const answer = stripLeakedCodes(parsed.answer);
+    return json({ answer, go });
   } catch (e) {
     return json({ answer: lang === "en" ? "Sorry, something went wrong. Could you ask again?" : "죄송해요, 잠시 문제가 생겼어요. 다시 한 번 물어봐 주시겠어요?", detail: String(e) });
   }
