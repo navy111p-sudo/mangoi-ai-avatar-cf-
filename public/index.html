@@ -110,24 +110,49 @@
     speechSynthesis.speak(u);
   }
 
+  // === 음성 정지: 진행 중 TTS fetch 취소 + 재생/입모양 중단 ===
+  var ttsAbort=null, speakSeq=0;
+  function stopSpeaking(){
+    speakSeq++;                                 // 진행 중 시퀀스 무효화(늦게 온 TTS 폐기)
+    try{ if(ttsAbort) ttsAbort.abort(); }catch(e){}
+    ttsAbort=null;
+    try{ speechSynthesis.cancel(); }catch(e){}
+    try{ audioEl.pause(); audioEl.currentTime=0; }catch(e){}
+    stopMouth();
+  }
+
   function speak(text){
     lastAnswer=text;
-    stopMouth();
-    try{ speechSynthesis.cancel(); }catch(e){}
-    try{ audioEl.pause(); }catch(e){}
+    stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
+    var mySeq=speakSeq;                         // 이 호출의 시퀀스
+    var ac=("AbortController" in window)?new AbortController():null;
+    ttsAbort=ac;
     fetch("/api/tts",{ method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({text:text}) })
+      body:JSON.stringify({text:text}), signal: ac?ac.signal:undefined })
       .then(function(r){ if(!r.ok) throw new Error("tts "+r.status); return r.blob(); })
       .then(function(blob){
+        if(mySeq!==speakSeq) throw {name:"AbortError"};   // 늦게 도착 → 폐기(폴백 안 함)
         if(!blob || blob.size < 200) throw new Error("empty audio");
         if(lastBlobUrl){ try{ URL.revokeObjectURL(lastBlobUrl); }catch(e){} }
         lastBlobUrl = URL.createObjectURL(blob);
         audioEl.src = lastBlobUrl;
         return audioEl.play();
       })
-      .then(function(){ startMouth(); })
-      .catch(function(){ speakBrowser(text); });
+      .then(function(){ if(mySeq===speakSeq) startMouth(); })
+      .catch(function(err){
+        if(err && err.name==="AbortError") return;        // 중단/취소는 브라우저 음성 폴백 안 함
+        if(mySeq!==speakSeq) return;                       // 더 이상 최신 호출 아님
+        speakBrowser(text);
+      });
   }
+
+  // === 정지 트리거: 부모(mangoi-stop) / 탭 숨김 / 페이지 이탈 ===
+  window.addEventListener("message", function(ev){
+    var d=ev.data;
+    if(d==="mangoi-stop" || (d && d.type==="mangoi-stop")) stopSpeaking();
+  });
+  document.addEventListener("visibilitychange", function(){ if(document.hidden) stopSpeaking(); });
+  window.addEventListener("pagehide", stopSpeaking);
   // === 페이지 바로 열기 (아바타가 제안 → 사용자가 '네' 하면 홈페이지 메뉴 열기) ===
   var pendingGo=null;
   var GO_LABELS={ "lesson-enter":"수업 입장", "lesson-change":"연기/변경", "leveltest":"레벨테스트", "library":"자료실(교재)", "report":"평가표", "mypage":"마이페이지",
@@ -181,7 +206,7 @@
   input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
   replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); });
   closeBtn.addEventListener("click",function(){
-    try{speechSynthesis.cancel();}catch(e){} try{audioEl.pause();}catch(e){} stopMouth();
+    stopSpeaking();
     if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
     else { win.classList.add("hidden"); }
   });
