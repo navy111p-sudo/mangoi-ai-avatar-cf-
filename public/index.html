@@ -253,6 +253,12 @@
 
   sendBtn.addEventListener("click",send);
   input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+  // 질문 입력(포커스/타이핑) 시 부모 홈페이지 홍보영상 페이드아웃 트리거
+  var __typedNotified=false;
+  function notifyTyping(){ if(__typedNotified) return; __typedNotified=true;
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-typing"},"*"); }catch(e){} } }
+  input.addEventListener("focus", notifyTyping);
+  input.addEventListener("input", notifyTyping);
   replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); });
   closeBtn.addEventListener("click",function(){
     stopSpeaking();
