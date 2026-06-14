@@ -7,32 +7,44 @@
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body { height:100%; }
-  body { font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-    background:transparent; }
-  /* iframe / 모바일 화면을 꽉 채우는 반응형 레이아웃 */
+  body { font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:transparent; }
   #avatar-window { position:fixed; inset:0; width:100%; height:100%;
     background:rgba(20,20,25,0.96); border-radius:18px; overflow:hidden;
     display:flex; flex-direction:column; }
   #avatar-window.hidden { display:none; }
   #toolbar { display:flex; align-items:center; justify-content:space-between; padding:10px 12px;
     background:rgba(255,204,0,0.12); border-bottom:1px solid rgba(255,204,0,0.35); flex:0 0 auto; }
-  #toolbar .title { color:#ffcc00; font-weight:700; font-size:14px; }
-  #toolbar .controls button { background:transparent; border:none; cursor:pointer; font-size:16px;
-    margin-left:4px; padding:2px 6px; border-radius:6px; }
+  #toolbar .title { color:#ffcc00; font-weight:700; font-size:15px; }
+  #toolbar .controls button { background:transparent; border:none; cursor:pointer; font-size:17px;
+    margin-left:6px; padding:2px 6px; border-radius:6px; }
   #toolbar .controls button:hover { background:rgba(255,255,255,0.12); }
-  #subtitle { color:#fff; font-size:14px; line-height:1.6; padding:16px 14px; min-height:18px;
-    flex:1 1 auto; overflow-y:auto; background:rgba(0,0,0,0.30); }
-  #speaking-dot { display:inline-block; margin-bottom:8px; background:rgba(0,0,0,0.4); color:#ffcc00;
-    font-size:11px; padding:4px 9px; border-radius:12px; }
+  /* 하트 프레임 영상 아바타 */
+  #avatar-area { position:relative; width:100%; height:250px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    background:radial-gradient(circle at 50% 40%, #2a2f3a 0%, #14141a 100%); }
+  #avatar-video { width:250px; height:250px; object-fit:cover; object-position:center 22%; display:block;
+    -webkit-clip-path:url(#heartClip); clip-path:url(#heartClip);
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,0.45)); background:#000; }
+  #speaking-dot { position:absolute; top:10px; left:12px; background:rgba(0,0,0,0.55); color:#ffcc00;
+    font-size:12px; padding:5px 10px; border-radius:12px; z-index:2; }
   #speaking-dot.hidden { display:none; }
+  #subtitle { color:#fff; font-size:15px; line-height:1.6; padding:14px 16px; min-height:60px;
+    flex:1 1 auto; overflow-y:auto; background:rgba(0,0,0,0.30); }
   #chat-area { display:flex; gap:8px; padding:12px; background:rgba(0,0,0,0.25); flex:0 0 auto; }
-  #chat-input { flex:1; border:1px solid rgba(255,204,0,0.5); border-radius:12px; padding:11px 12px;
+  #chat-input { flex:1; border:1px solid rgba(255,204,0,0.5); border-radius:12px; padding:12px 14px;
     font-size:16px; background:rgba(255,255,255,0.95); outline:none; }
   #send-btn { background:#ffcc00; color:#1a1a1a; border:none; border-radius:12px; padding:0 18px; font-weight:700; cursor:pointer; font-size:15px; }
   #send-btn:disabled { opacity:0.5; cursor:not-allowed; }
 </style>
 </head>
 <body>
+  <!-- 하트 모양 클립(영상 프레임용) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <clipPath id="heartClip" clipPathUnits="objectBoundingBox">
+      <path d="M0.5,0.30 C0.5,0.18 0.36,0.04 0.20,0.09 C0.04,0.14 0.01,0.34 0.10,0.50 C0.18,0.66 0.37,0.81 0.5,0.96 C0.63,0.81 0.82,0.66 0.90,0.50 C0.99,0.34 0.96,0.14 0.80,0.09 C0.64,0.04 0.5,0.18 0.5,0.30 Z"/>
+    </clipPath>
+  </defs></svg>
+
   <div id="avatar-window">
     <div id="toolbar">
       <span class="title">💁‍♀️ 망고아이 상담직원</span>
@@ -41,10 +53,13 @@
         <button id="close-btn" title="닫기">❌</button>
       </span>
     </div>
-    <div id="subtitle">
-      <span id="speaking-dot" class="hidden">🔊 말하는 중...</span>
-      <div id="subtitle-text">안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!</div>
+    <div id="avatar-area">
+      <video id="avatar-video"
+        src="https://webrtc-unified-platform.navy111p.workers.dev/video/postpone-guide.mp4"
+        muted loop playsinline preload="auto"></video>
+      <div id="speaking-dot" class="hidden">🔊 말하는 중...</div>
     </div>
+    <div id="subtitle">안녕하세요! 망고아이 상담직원이에요 😊 무엇이든 물어보세요!</div>
     <div id="chat-area">
       <input id="chat-input" type="text" placeholder="궁금한 점을 물어보세요!" autocomplete="off" />
       <button id="send-btn">전송</button>
@@ -52,41 +67,112 @@
   </div>
 
 <script>
-  var subtitle=document.getElementById("subtitle-text");
+  var subtitle=document.getElementById("subtitle");
   var input=document.getElementById("chat-input");
   var sendBtn=document.getElementById("send-btn");
   var replayBtn=document.getElementById("replay-btn");
   var closeBtn=document.getElementById("close-btn");
   var win=document.getElementById("avatar-window");
   var speakingDot=document.getElementById("speaking-dot");
+  var video=document.getElementById("avatar-video");
+
+  // 평소엔 입 닫힘(정지). 말할 때만 영상 재생 → 입 움직임.
+  try{ video.pause(); video.currentTime=0; }catch(e){}
+  video.addEventListener("loadeddata", function(){ try{ video.pause(); video.currentTime=0; }catch(e){} });
+  // 영상 로드 실패 시 깔끔히 숨김(배경 그라데이션 유지)
+  video.addEventListener("error", function(){ video.style.opacity="0"; });
 
   var lastAnswer="";
+  var lastBlobUrl=null;
+  function startMouth(){ speakingDot.classList.remove("hidden"); try{ video.play(); }catch(e){} }
+  function stopMouth(){ speakingDot.classList.add("hidden"); try{ video.pause(); }catch(e){} }
 
-  // 방문자 브라우저의 한국어 음성(TTS)으로 답변을 읽어줍니다.
+  // === 음성: 1순위 타입캐스트(서버), 실패 시 브라우저 음성 ===
+  var audioEl = new Audio();
+  // 모바일(안드로이드 Chrome) 자동재생 정책 우회: 첫 사용자 제스처에서 오디오/영상 잠금 해제
+  var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}try{var pv=video.play();if(pv&&pv.then)pv.then(function(){video.pause();video.currentTime=0;}).catch(function(){});}catch(e){}}
+  ["touchstart","pointerdown","mousedown","click","keydown"].forEach(function(ev){document.addEventListener(ev,__unlock,{passive:true});});
+  audioEl.addEventListener("playing", startMouth);
+  audioEl.addEventListener("ended", stopMouth);
+  audioEl.addEventListener("pause", stopMouth);
+  audioEl.addEventListener("error", stopMouth);
+
   var koVoice=null;
   function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
     koVoice=vs.filter(function(v){return /ko/i.test(v.lang);})[0]||null; }
   if(window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
-  function speak(text){
-    lastAnswer=text;
-    if(!window.speechSynthesis) return;
+  function speakBrowser(text){
+    if(!window.speechSynthesis){ startMouth(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
     u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05;
-    u.onstart=function(){ speakingDot.classList.remove("hidden"); };
-    u.onend=function(){ speakingDot.classList.add("hidden"); };
+    u.onstart=startMouth; u.onend=stopMouth; u.onerror=stopMouth;
     speechSynthesis.speak(u);
   }
-  function deliver(ans){ subtitle.textContent=ans; speak(ans); }
 
-  // 서버(/api/chat)에 질문을 보냄 → 키는 서버에만 있으므로 안전.
+  function speak(text){
+    lastAnswer=text;
+    stopMouth();
+    try{ speechSynthesis.cancel(); }catch(e){}
+    try{ audioEl.pause(); }catch(e){}
+    fetch("/api/tts",{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:text}) })
+      .then(function(r){ if(!r.ok) throw new Error("tts "+r.status); return r.blob(); })
+      .then(function(blob){
+        if(!blob || blob.size < 200) throw new Error("empty audio");
+        if(lastBlobUrl){ try{ URL.revokeObjectURL(lastBlobUrl); }catch(e){} }
+        lastBlobUrl = URL.createObjectURL(blob);
+        audioEl.src = lastBlobUrl;
+        return audioEl.play();
+      })
+      .then(function(){ startMouth(); })
+      .catch(function(){ speakBrowser(text); });
+  }
+  // === 페이지 바로 열기 (아바타가 제안 → 사용자가 '네' 하면 홈페이지 메뉴 열기) ===
+  var pendingGo=null;
+  var GO_LABELS={ "lesson-enter":"수업 입장", "lesson-change":"연기/변경", "leveltest":"레벨테스트", "library":"자료실(교재)", "report":"평가표", "mypage":"마이페이지",
+    "payment":"결제", "booking":"수업 신청", "precheck":"수업 진단", "teachers":"교사 소개",
+    "review-quiz":"복습퀴즈", "all-menu":"전체메뉴" };
+  function parseGo(raw){
+    var go=null, m=raw.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/i);
+    if(m){ var c=m[1].toLowerCase().replace(/_/g,"-"); if(GO_LABELS[c]) go=c; }
+    raw=raw.replace(/\[\[\s*GO\s*:[^\]]*\]\]/ig,"").replace(/\[\[\s*GO[^\]]*\]?\]?/ig,"").trim();
+    return { text:raw, go:go };
+  }
+  function norm(s){ return (s||"").replace(/[!.?~\s]/g,"").toLowerCase(); }
+  function isYes(s){ return ["응","어","네","넵","예","옙","그래","그래요","좋아","좋아요","열어","열어줘","열어주세요","열어줄래","보여줘","보여주세요","가자","이동","ㅇㅇ","ㅇ","ok","okay","yes","y","네네","응응"].indexOf(norm(s))>=0; }
+  function isNo(s){ return ["아니","아니요","아니오","노","괜찮아","괜찮아요","됐어","됐어요","싫어","나중에","no","n","ㄴㄴ","ㄴ"].indexOf(norm(s))>=0; }
+  function openParentPage(go){ if(window.parent!==window){ window.parent.postMessage({type:"mangoi-open", go:go}, "*"); } }
+
+  function deliver(ans, go){
+    var p=parseGo(ans||"");
+    pendingGo = (go && GO_LABELS[go]) ? go : p.go;  // 서버가 준 go 우선, 없으면 텍스트에서 추출
+    subtitle.textContent=p.text; speak(p.text);
+  }
+
   function send(){
     var msg=input.value.trim(); if(!msg) return;
+    // 페이지 열기 제안에 대한 응답 먼저 처리
+    if(pendingGo){
+      if(isYes(msg)){
+        var go=pendingGo; pendingGo=null; input.value="";
+        var label=GO_LABELS[go]||"";
+        subtitle.textContent="네, "+label+" 페이지를 열어드릴게요! 😊";
+        speak("네, "+label+" 페이지를 열어드릴게요!");
+        openParentPage(go); input.focus(); return;
+      }
+      if(isNo(msg)){
+        pendingGo=null; input.value="";
+        deliver("네, 알겠어요! 다른 궁금한 점이 있으면 언제든 물어봐 주세요. 😊");
+        input.focus(); return;
+      }
+      pendingGo=null; // 그 외 → 새 질문으로 처리
+    }
     input.value=""; sendBtn.disabled=true; subtitle.textContent="답변을 준비하고 있어요...";
     fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:msg}) })
       .then(function(r){ return r.json(); })
-      .then(function(d){ deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?"); })
+      .then(function(d){ deliver(d.answer||"음, 다시 한 번 말씀해 주시겠어요?", d && d.go); })
       .catch(function(){ deliver("연결이 잠깐 끊겼어요. 다시 시도해 주세요."); })
       .then(function(){ sendBtn.disabled=false; input.focus(); });
   }
@@ -95,8 +181,7 @@
   input.addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
   replayBtn.addEventListener("click",function(){ if(lastAnswer) speak(lastAnswer); });
   closeBtn.addEventListener("click",function(){
-    try{speechSynthesis.cancel();}catch(e){}
-    // iframe 안에 있으면 부모 창에 닫기 신호를 보냄(위젯이 접힘)
+    try{speechSynthesis.cancel();}catch(e){} try{audioEl.pause();}catch(e){} stopMouth();
     if(window.parent!==window){ window.parent.postMessage("mangoi-avatar-close","*"); }
     else { win.classList.add("hidden"); }
   });
