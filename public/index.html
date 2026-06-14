@@ -84,18 +84,67 @@
 
   var lastAnswer="";
   var lastBlobUrl=null;
-  function startMouth(){ speakingDot.classList.remove("hidden"); try{ video.play(); }catch(e){} }
-  function stopMouth(){ speakingDot.classList.add("hidden"); try{ video.pause(); }catch(e){} }
+  function startMouth(){
+    speakingDot.classList.remove("hidden");
+    if(ensureLipGraph()){
+      try{ if(actx && actx.state==="suspended") actx.resume(); }catch(e){}
+      if(!lipRAF) lipRAF=requestAnimationFrame(lipLoop);
+    } else {
+      try{ video.play(); }catch(e){}                 // WebAudio 미지원/실패 → 기존 동작 폴백
+    }
+  }
+  function stopMouth(){
+    speakingDot.classList.add("hidden");
+    if(lipRAF){ try{ cancelAnimationFrame(lipRAF); }catch(e){} lipRAF=0; }
+    try{ video.pause(); }catch(e){}
+  }
 
   // === 음성: 1순위 타입캐스트(서버), 실패 시 브라우저 음성 ===
   var audioEl = new Audio();
   // 모바일(안드로이드 Chrome) 자동재생 정책 우회: 첫 사용자 제스처에서 오디오/영상 잠금 해제
-  var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}try{var pv=video.play();if(pv&&pv.then)pv.then(function(){video.pause();video.currentTime=0;}).catch(function(){});}catch(e){}}
+  var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{if(actx&&actx.state==="suspended")actx.resume();}catch(e){}try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}try{var pv=video.play();if(pv&&pv.then)pv.then(function(){video.pause();video.currentTime=0;}).catch(function(){});}catch(e){}}
   ["touchstart","pointerdown","mousedown","click","keydown"].forEach(function(ev){document.addEventListener(ev,__unlock,{passive:true});});
   audioEl.addEventListener("playing", startMouth);
   audioEl.addEventListener("ended", stopMouth);
   audioEl.addEventListener("pause", stopMouth);
   audioEl.addEventListener("error", stopMouth);
+
+  // === 음량 기반 립싱크 (Web Audio) — 음소 모양은 못 바꾸지만 음량으로 입 움직임 강약 ===
+  var actx=null, srcNode=null, analyser=null, lipData=null, lipRAF=0, lipReady=false, lipFailed=false;
+  function ensureLipGraph(){            // 엘리먼트당 createMediaElementSource는 1회 → 지연 1회 생성
+    if(lipReady) return true;
+    if(lipFailed) return false;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC) throw new Error("no WebAudio");
+      actx=new AC();
+      srcNode=actx.createMediaElementSource(audioEl);
+      srcNode.connect(actx.destination);             // 1) 소리 경로 먼저 보장(필수 — 안 하면 무음)
+      analyser=actx.createAnalyser(); analyser.fftSize=512;
+      srcNode.connect(analyser);                      // 2) 분석용 탭(destination 연결 불필요)
+      lipData=new Uint8Array(analyser.fftSize);
+      lipReady=true;
+      return true;
+    }catch(e){
+      lipFailed=true;                                 // 실패 → 재시도 안 함, video.play() 폴백
+      try{ if(actx) actx.close(); }catch(_){}
+      actx=null; srcNode=null; analyser=null;
+      return false;
+    }
+  }
+  function lipLoop(){
+    if(!lipReady){ lipRAF=0; return; }
+    analyser.getByteTimeDomainData(lipData);
+    var sum=0;
+    for(var i=0;i<lipData.length;i++){ var v=(lipData[i]-128)/128; sum+=v*v; }
+    var level=Math.sqrt(sum/lipData.length);          // RMS 0~1
+    if(level>0.06){
+      try{ if(video.paused) video.play(); video.playbackRate=0.7+level*1.1; }catch(e){}
+    } else {
+      try{ if(!video.paused) video.pause(); }catch(e){}
+    }
+    lipRAF=requestAnimationFrame(lipLoop);
+  }
 
   var koVoice=null;
   function pickVoice(){ var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
