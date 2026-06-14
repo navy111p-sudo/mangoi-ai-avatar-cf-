@@ -164,8 +164,8 @@
     if(!window.speechSynthesis){ startMouthPlain(); setTimeout(stopMouth, Math.min(12000, Math.max(1500, text.length*90))); return; }
     speechSynthesis.cancel();
     var u=new SpeechSynthesisUtterance(text);
-    if(uiLang==="en"){ u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=1.0; u.pitch=1.0; }
-    else { u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05; }
+    if(/[가-힣]/.test(text)){ u.lang="ko-KR"; if(koVoice) u.voice=koVoice; u.rate=1.0; u.pitch=1.05; }
+    else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=1.0; u.pitch=1.0; }
     u.onstart=startMouthPlain; u.onend=stopMouth; u.onerror=stopMouth;
     speechSynthesis.speak(u);
   }
@@ -185,7 +185,7 @@
     lastAnswer=text;
     stopListening();                            // 답변 재생 시작 → 듣기 중이면 정지(에코 방지)
     stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
-    if(uiLang==="en"){ speakBrowser(text); return; }   // 영어 = 브라우저 내장 음성(speechSynthesis)
+    if(!/[가-힣]/.test(text)){ speakBrowser(text); return; }   // 답변에 한글 없음 → 영어로 간주: 브라우저 음성
     var mySeq=speakSeq;                         // 이 호출의 시퀀스
     var ac=("AbortController" in window)?new AbortController():null;
     ttsAbort=ac;
