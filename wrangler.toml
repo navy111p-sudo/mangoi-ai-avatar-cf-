@@ -1,8 +1,14 @@
-name = "mangoi-ai-avatar"
-compatibility_date = "2024-11-01"
-pages_build_output_dir = "public"
+name = "mangoi-ai-avatar-cf"
+main = "src/index.js"
+compatibility_date = "2025-05-01"
+
+# 정적 자산(public/) + Worker(API) 함께 배포.
+# 정적 파일이 먼저 서빙되고, /api/chat 같은 비-자산 경로만 Worker 가 처리합니다.
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 # 환경변수(시크릿)는 코드/깃허브에 적지 않습니다.
-# 로컬 테스트:   npx wrangler pages dev public   (.dev.vars 의 GEMINI_API_KEY 사용)
-# 운영 배포 키:  Cloudflare 대시보드 → Pages → Settings → Environment variables → GEMINI_API_KEY
-#         또는:  npx wrangler pages secret put GEMINI_API_KEY
+# 운영 키:  Cloudflare 대시보드 → 이 Worker → Settings → Variables and Secrets → GEMINI_API_KEY
+#   또는:  npx wrangler secret put GEMINI_API_KEY
+# 로컬 키:  .dev.vars 파일의 GEMINI_API_KEY (git 에 안 올라감)

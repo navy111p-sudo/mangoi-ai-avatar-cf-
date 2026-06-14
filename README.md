@@ -44,26 +44,30 @@ git push -u origin main
 ```
 > ⚠️ `.dev.vars`, `.env` 는 `.gitignore`로 제외돼 있어 키가 깃허브에 올라가지 않습니다.
 
-## 4) Cloudflare Pages 배포
+## 4) Cloudflare Workers 배포 (정적 자산 + API)
+이 프로젝트는 Cloudflare **Workers + static assets** 방식입니다.
+`public/` 정적 파일이 먼저 서빙되고, `/api/chat` 만 `src/index.js` Worker 가 처리합니다.
+
 **방법 A — 대시보드(권장)**
-1. https://dash.cloudflare.com → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-2. `mangoi-develop2` 저장소 선택
-3. 빌드 설정:
-   - **Framework preset**: None
+1. https://dash.cloudflare.com → **Workers & Pages** → **Create** → **Import a repository**
+2. `mangoi-ai-avatar-cf-` 저장소 선택
+3. 설정:
+   - **Project name**: `mangoi-ai-avatar-cf` (wrangler.toml 의 name 과 동일하게)
    - **Build command**: 비움
-   - **Build output directory**: `public`
-4. **Settings → Environment variables → Production**에 추가:
-   - `GEMINI_API_KEY` = (복사한 키)   ← ★ 여기에만 키를 넣습니다(안전)
-5. **Save and Deploy** → 빌드 후 `https://OOO.pages.dev` 공개 주소 발급.
+   - **Deploy command**: `npx wrangler deploy` (기본값 그대로)
+4. **Advanced settings → Variables and Secrets** 에 추가:
+   - `GEMINI_API_KEY` = (복사한 키)  ← ★ Secret 으로 추가(안전)
+   - (이 화면에 없으면 배포 후 Settings → Variables and Secrets 에서 추가하고 재배포)
+5. **Deploy** → 빌드 후 `https://OOO.workers.dev` 공개 주소 발급.
 
 **방법 B — CLI**
 ```bash
-npx wrangler pages project create mangoi-ai-avatar
-npx wrangler pages secret put GEMINI_API_KEY        # 키 입력
-npm run deploy
+npm install
+npx wrangler deploy                       # 첫 배포
+npx wrangler secret put GEMINI_API_KEY     # 키 입력 후 재배포
 ```
 
-자동 배포: 4번 방법 A로 연결하면 이후 `git push` 할 때마다 **Cloudflare가 자동으로 재배포**합니다.
+자동 배포: 방법 A로 연결하면 이후 `git push` 할 때마다 **Cloudflare 가 자동으로 재배포**합니다.
 
 ## 5) 망고아이 웹/앱에 연동
 망고아이 웹 저장소의 페이지 `</body>` 바로 위에 `embed-snippet.html` 내용을 붙여넣고,

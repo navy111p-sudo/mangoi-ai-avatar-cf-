@@ -1,13 +1,13 @@
 {
-  "name": "mangoi-ai-avatar",
+  "name": "mangoi-ai-avatar-cf",
   "version": "1.0.0",
   "private": true,
-  "description": "망고아이 AI 상담직원 — Cloudflare Pages + Functions + Gemini",
+  "description": "망고아이 AI 상담직원 — Cloudflare Worker(정적 자산 + API) + Gemini",
   "scripts": {
-    "dev": "wrangler pages dev public",
-    "deploy": "wrangler pages deploy public"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "^3.90.0"
+    "wrangler": "^4.20.0"
   }
 }
