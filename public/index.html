@@ -18,6 +18,8 @@
     background:#121a2c; border-bottom:1px solid rgba(255,255,255,0.08); flex:0 0 auto; }
   #hdr-avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; object-position:center 22%;
     background:#1c2740; flex:0 0 auto; border:2px solid rgba(255,206,74,0.7); box-shadow:0 0 0 1px rgba(0,0,0,0.3); }
+  /* PC(데스크톱)에서 강사 얼굴 30% 더 크게 (부모가 ?dev=pc 로 전달) */
+  body.mi-pc #hdr-avatar { width:114px; height:114px; }
   #hdr-meta { display:flex; flex-direction:column; line-height:1.2; flex:1 1 auto; min-width:0; }
   #hdr-title { color:#fff; font-weight:800; font-size:16px; }
   #hdr-status { display:flex; align-items:center; gap:5px; color:#7fe3a0; font-size:12px; margin-top:2px; }
@@ -262,12 +264,14 @@
     ko:[
       ["🧾","AI 평가서·학습 리포트 초안","평가서와 학습 리포트 초안 작성을 도와줘"],
       ["🚨","실시간 이상감지 대응","실시간 이상감지 현황과 대응 방법을 알려줘"],
-      ["💸","미납 알림·지점/강사 정산","미납 알림과 지점·강사 정산을 도와줘"]
+      ["💸","미납 알림·지점/강사 정산","미납 알림과 지점·강사 정산을 도와줘"],
+      ["💰","회계 관리 바로가기","","accounting"]
     ],
     en:[
       ["🧾","AI evaluation & learning report draft","Help me draft evaluations and learning reports"],
       ["🚨","Real-time anomaly response","Show real-time anomaly status and how to respond"],
-      ["💸","Overdue alerts & branch/teacher settlement","Help with overdue alerts and branch/teacher settlement"]
+      ["💸","Overdue alerts & branch/teacher settlement","Help with overdue alerts and branch/teacher settlement"],
+      ["💰","Open Accounting management","","accounting"]
     ]
   };
 
@@ -282,7 +286,7 @@
       + '<div style="color:#c4ccdd;font-size:14px;margin-bottom:4px;">'+t.greetSub+'</div>';
     for(var i=0;i<menus.length;i++){
       var m=menus[i];
-      html+='<button type="button" class="menu-item" data-q="'+escHtml(m[2])+'">'
+      html+='<button type="button" class="menu-item" data-q="'+escHtml(m[2])+'" data-go="'+escHtml(m[3]||"")+'">'
         +'<span class="num">'+(i+1)+'.</span><span>'+m[0]+' '+escHtml(m[1])+'</span><span class="arr">↗</span></button>';
     }
     html+='</div>';
@@ -295,10 +299,24 @@
     var btns=subtitle.querySelectorAll(".menu-item");
     for(var i=0;i<btns.length;i++){
       btns[i].addEventListener("click", function(){
+        var go=this.getAttribute("data-go")||"";
+        if(go){ openParentGo(go); return; }
         var q=this.getAttribute("data-q")||"";
         if(q){ input.value=q; notifyTyping(); send(); }
       });
     }
+  }
+  // 메뉴(인사 버블) 제거 — 질문하거나 메뉴 누르면 자동으로 사라짐
+  function clearMenus(){
+    var mi=subtitle.querySelector(".menu-item");
+    if(mi){ var bub=mi.closest(".bubble"); if(bub) bub.parentNode.removeChild(bub); }
+  }
+  // 메뉴 → 부모(관리자 페이지)에 해당 메뉴 열기 요청(예: 회계 관리)
+  function openParentGo(go){
+    stopGreetVideo();
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go}, "*"); }catch(e){} }
+    clearMenus();
+    appendBot(uiLang==="en"?"Opening the Accounting management menu…":"회계 관리 메뉴로 이동할게요. 😊");
   }
 
   function applyLang(l){
@@ -378,6 +396,7 @@
   function send(){
     var msg=input.value.trim(); if(!msg) return;
     stopGreetVideo();
+    clearMenus();          // 질문하면 1·2·3·4 메뉴(인사 버블) 자동 제거
     appendUser(msg);
     input.value=""; sendBtn.disabled=true;
     var thinking=appendBot(uiLang==="en"?"…thinking":"답변을 준비하고 있어요…");
@@ -466,6 +485,8 @@
     });
   }
 
+  // 부모가 ?dev=pc 로 열면 PC로 간주 → 얼굴 30% 확대
+  try{ if(new URLSearchParams(location.search).get("dev")==="pc"){ document.body.classList.add("mi-pc"); } }catch(e){}
   // 초기 인사 렌더 + (단독 표시 시) 자동 인사
   renderGreeting();
   if(_wasShown){ setTimeout(greetOnOpen, 400); }
