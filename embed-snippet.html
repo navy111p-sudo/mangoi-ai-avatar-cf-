@@ -14,17 +14,17 @@
   <button id="mangoi-toggle" aria-label="AI 상담직원 열기">💁‍♀️</button>
 </div>
 <style>
-  #mangoi-widget { position:fixed; right:20px; bottom:20px; z-index:2147483000; }
-  #mangoi-frame { display:none; width:380px; height:620px; max-width:calc(100vw - 40px);
-    max-height:calc(100vh - 100px); border:none; border-radius:20px;
+  #mangoi-widget { position:fixed; left:20px; bottom:20px; z-index:2147483000; }
+  #mangoi-frame { display:none; width:420px; height:720px; max-width:calc(100vw - 40px);
+    max-height:calc(100vh - 90px); border:none; border-radius:20px;
     box-shadow:0 12px 40px rgba(0,0,0,0.35); background:#111; }
   #mangoi-widget.open #mangoi-frame { display:block; }
-  #mangoi-toggle { margin-top:10px; margin-left:auto; display:block; width:60px; height:60px;
+  #mangoi-toggle { margin-top:10px; margin-right:auto; display:block; width:60px; height:60px;
     border:none; border-radius:50%; background:#ffcc00; color:#1a1a1a; font-size:28px;
     cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.3); }
   @media (max-width:480px){
-    #mangoi-frame{ width:calc(100vw - 24px); height:75vh; }
-    #mangoi-widget{ right:12px; bottom:12px; }
+    #mangoi-frame{ width:calc(100vw - 24px); height:80vh; }
+    #mangoi-widget{ left:12px; bottom:12px; }
   }
 </style>
 <script>
@@ -35,6 +35,10 @@
       w.classList.toggle("open", open);
       t.textContent = open ? "✖️" : "💁‍♀️";
       t.setAttribute("aria-label", open ? "AI 상담직원 닫기" : "AI 상담직원 열기");
+      if(open){   // 열릴 때 상담직원이 인사말을 먼저 음성으로 말하도록 신호 전송
+        var f=document.getElementById("mangoi-frame");
+        try{ f && f.contentWindow && f.contentWindow.postMessage("mangoi-greet","*"); }catch(e){}
+      }
     }
     t.addEventListener("click", function(){ setOpen(!w.classList.contains("open")); });
     // 상담창 안의 ❌ 버튼이 보내는 닫기 신호 처리

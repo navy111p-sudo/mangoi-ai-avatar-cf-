@@ -11,6 +11,8 @@ const PERSONA =
   "[화면 사용 안내 — 아래 적힌 사실만 정확히 안내하고, 이 목록에 없는 메뉴/버튼 위치나 조작 방법은 절대 지어내지 마.]\n" +
   "- 수업 입장: 화면 우측 하단의 버튼을 눌러 원어민 선생님 방으로 입장합니다.\n" +
   "- 결제 / 수강권 구매: 좌측 하단의 노란색 버튼을 누르면 됩니다.\n" +
+  "- 수강료 / 가격 / 비용 / 학비 / 교육비 / 강사료 / 요금 / 얼마예요 등 '돈·금액'에 관한 질문: 정확한 금액은 '수강료' 메뉴에서 확인하실 수 있어요. " +
+  "이런 비용 질문에는 절대 '확인 후 안내드릴게요'로 미루지 말고, 한두 문장으로 친절히 안내한 뒤 반드시 마지막 문장을 '망고아이 수강료 메뉴로 열어드릴까요?'로 끝내고, 답 맨 끝에 [[GO:payment]] 태그를 붙여줘.\n" +
   "- 성적표 / 평가표: 화면 왼쪽 사이드바 메뉴를 열면 '평가표(성적표)'가 있고, 그것을 누르면 수업 성적과 기록을 확인할 수 있습니다. " +
   "(우측 상단 프로필이 아니라 '왼쪽 사이드바의 평가표'가 정답입니다.)\n" +
   "- 시간표 / 출석 확인: 왼쪽 메뉴(또는 로그인)에서 '마이페이지'를 열면 확인할 수 있습니다.\n" +
@@ -21,11 +23,13 @@ const PERSONA =
   "- 수업 변경: 왼쪽 메뉴를 열고 '수업 변경'(연기/변경)을 누르면 됩니다.\n" +
   "- 회원정보 수정 / 비밀번호 변경: 우측 상단의 로그인 표시 또는 왼쪽 메뉴의 '마이페이지'에 들어가서 변경합니다.\n" +
   "- 레벨테스트 / 실력 진단: 왼쪽 메뉴(또는 전체메뉴)의 '레벨테스트'에서 신청합니다. 선생님 1:1 평가와 AI 자동 진단을 함께 진행해 정확한 레벨을 찾아드려요. 원하는 날짜·시간을 골라 예약하면 됩니다.\n" +
-  "- 환불 문의: 화면 하단의 '카톡 상담'에 글을 남겨 주시면 처리해 드립니다.\n" +
+  "- 망고아이 장점 / 특징 / 경쟁사·타사와의 차이 / 비교 / 왜 망고아이를 선택해야 하는지: '망고아이란?'(소개) 메뉴에 망고아이의 자세한 장점과 특징이 정리되어 있어요. " +
+  "이런 질문에는 한두 문장으로 친절히 소개한 뒤 마지막 문장을 '망고아이란? 으로 열어드릴까요?'로 끝내고, 답 맨 끝에 [[GO:about]] 태그를 붙여줘.\n" +
+  "- 환불 / 환불규정 / 환급 / 돌려받기: 망고아이 '환불규정' 메뉴에 환불 기준표가 정리되어 있어요. 한두 문장으로 친절히 안내한 뒤 마지막 문장을 '환불규정 메뉴로 연결해 드릴까요?'로 끝내고, 답 맨 끝에 [[GO:refund]] 태그를 붙여줘. (환불을 '수강료/결제'로 안내하지 마.)\n" +
   "위 목록에 없는 메뉴 위치를 물어보면 추측해서 답하지 말고, '정확한 위치를 확인한 뒤 안내드릴게요' 라고 하거나 하단 카톡 상담 연결을 권해줘.\n" +
   "[페이지 바로 열기 기능] 질문이 아래 코드 목록의 메뉴와 관련 있으면, 짧게 안내한 뒤 마지막 문장으로 '○○ 페이지를 열어드릴까요?'라고 물어봐. " +
   "그리고 답변의 맨 끝(마침표 뒤)에 사용자에게 보이지 않는 태그 [[GO:코드]] 를 정확히 한 개만 붙여줘. 태그는 설명하지 말고 그냥 붙이기만 해.\n" +
-  "코드 목록: lesson-enter(수업 입장=지금 화상수업 로비로 들어가기), lesson-change(수업 연기/변경=일정 바꾸기), leveltest(레벨테스트/실력 진단 신청), library(교재/수업 자료/자료실), report(평가표/성적표), mypage(마이페이지/학생 대시보드), payment(결제/수강권), booking(수업 신청/예약), precheck(수업 진단), teachers(교사 소개), review-quiz(복습퀴즈), all-menu(전체메뉴).\n" +
+  "코드 목록(코드=무엇): lesson-enter(수업 입장=지금 화상수업 로비로 들어가기), lesson-change(수업 연기/변경=일정 바꾸기), leveltest(레벨테스트), booking(수업 신청/예약), precheck(수업 진단), library(교재/수업 자료/자료실), report(평가표/성적표), mypage(마이페이지/학생 대시보드), parent-dashboard(학부모 대시보드), payment(결제/수강권), teachers(교사/선생님 소개), review-quiz(복습퀴즈), microquiz(미니퀴즈), admin(관리자 페이지), notice(공지사항), faq(자주 묻는 질문), event(이벤트), points-shop(포인트상점), mypoints(내 포인트), vocab(단어장), recordings(녹화본/다시보기), curriculum(커리큘럼/교육과정), trial(무료체험), enroll(수강 등록), contact(고객센터/문의), inquiry(신규상담), reviews(수강 후기), streak(연속출석), checkin(출석체크), mbti(MBTI 검사), about(망고아이 소개), goals(학습 목표), leaderboard(리더보드/순위), speech(단계별 발음), speech-coach(발음 코치), write(AI 작문), remote(원격 지원), installguide(설치 가이드), franchise(가맹 문의), callcenter(콜센터), videolesson(화상수업), focus(집중도 측정), teacher-praise(칭찬 스티커), diagnosis(자가진단), all-menu(전체메뉴).\n" +
   "★ 매우 중요: '수업 입장/수업 들어가기'는 반드시 lesson-enter 다. '수업 연기/변경/취소'는 lesson-change 다. 이 둘을 절대 바꿔 쓰지 마.\n" +
   "이 목록에 없는 주제면 '열어드릴까요?'도, 태그도 절대 붙이지 마. 한 답변에 태그는 최대 한 개.";
 
@@ -42,7 +46,7 @@ const PERSONA_EN =
   "- Change a class: open the left menu and tap 'Change' (postpone/change).\n" +
   "- Edit member info / change password: use the login area at the top-right or 'My Page' in the left menu.\n" +
   "- Level test / placement: apply from 'Level Test' in the left menu (or all-menu). It combines a 1:1 teacher evaluation and AI auto-diagnosis; pick a date and time to book.\n" +
-  "- Refund inquiry: leave a message in the 'KakaoTalk consult' at the bottom.\n" +
+  "- Refund / refund policy / money back: the 'Refund Policy' menu has the full refund schedule. Give a short, kind answer, end with 'Would you like me to open the Refund Policy page?', and append [[GO:refund]] at the very end. (Never route refunds to 'payment/tuition'.)\n" +
   "If asked about a location not in this list, don't guess — say 'Let me check the exact location and guide you,' or suggest the bottom KakaoTalk consult.\n" +
   "[Open-page feature] If the question relates to a menu in the code list below, give a short answer, then as the last sentence ask 'Would you like me to open the ○○ page?' " +
   "and append exactly one hidden tag [[GO:code]] at the very end (after the period). Do not explain the tag; just append it.\n" +
@@ -86,7 +90,19 @@ async function callAI(message, env, lang) {
 }
 
 // 허용된 페이지 열기 코드 + 답변에서 [[GO:코드]] 추출 & 잔여 태그 제거(깨진 변형 포함)
-const GO_CODES = ["lesson-enter","lesson-change","leveltest","library","report","mypage","payment","booking","precheck","teachers","review-quiz","all-menu"];
+const GO_CODES = ["lesson-enter","lesson-change","leveltest","booking","precheck","library","report","mypage","parent-dashboard","payment","teachers","review-quiz","microquiz","all-menu","admin","notice","faq","event","points-shop","mypoints","vocab","recordings","curriculum","trial","enroll","contact","inquiry","reviews","streak","checkin","mbti","about","goals","leaderboard","speech","speech-coach","write","remote","installguide","franchise","callcenter","videolesson","focus","teacher-praise","diagnosis","refund"];
+
+// 환불 관련 질문인지 감지 (환불규정/환불/환급/돌려받기/refund)
+function isRefundQuestion(msg) {
+  if (!msg) return false;
+  if (/refund|money\s*back/i.test(msg)) return true;
+  // 한글: 환불 / 환급 / 돌려받 / 돌려 받 / 위약금
+  if (msg.indexOf("환불") >= 0) return true;
+  if (msg.indexOf("환급") >= 0) return true;
+  if (msg.indexOf("위약금") >= 0) return true;
+  if (msg.replace(/\s/g, "").indexOf("돌려받") >= 0) return true;
+  return false;
+}
 function extractGo(text) {
   let go = null;
   const m = text.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/);
@@ -118,6 +134,7 @@ const GO_KEYWORDS = [
   ["precheck", ["수업 진단","수업진단","사전 진단","사전점검","사전 점검","수업 전 점검","수업전점검","precheck","pre-check","class diagnosis"]],
   ["leveltest", ["레벨테스트","레벨 테스트","실력테스트","실력 진단","level test","leveltest","placement"]],
   ["report", ["평가표","성적표","성적","report card","grades"]],
+  ["refund", ["환불","환급","위약금","돌려받","refund","money back"]],
   ["payment", ["결제","수강권","구매","payment","purchase","buy a pass","buy passes"]],
   ["library", ["자료실","교재","수업 자료","library","textbook","materials"]],
   ["mypage", ["마이페이지","마이 페이지","my page","mypage"]],
@@ -153,6 +170,14 @@ async function handleChat(request, env) {
   const message = ((body && body.message) || "").toString().trim().slice(0, 1000);
   const lang = hasKorean(message) ? "ko" : "en";   // 입력 메시지 언어 자동 감지(토글과 무관)
   if (!message) return json({ error: "message 가 비어 있습니다." }, 400);
+
+  // 환불 관련 질문: AI 호출 없이 환불 기준표를 보여주고 환불규정 메뉴로 연결 제안
+  if (isRefundQuestion(message)) {
+    const intro = lang === "en"
+      ? "Mangoi's refund follows the Office of Education's policy, calculated by how much of the course has been completed — please see the table below."
+      : "망고아이 환불은 교육청 환불규정에 따라 수업 진행 정도에 맞춰 아래 표 기준으로 처리돼요. 아래 표를 참고해 주세요!";
+    return json({ answer: intro, refund: true, go: "refund", lang });
+  }
 
   try {
     const r = await callAI(message, env, lang);
@@ -234,11 +259,54 @@ async function handleTTS(request, env) {
   });
 }
 
+// ===== 음성 인식 (STT) — Cloudflare Workers AI Whisper =====
+// 교차 출처 iframe 안에서는 브라우저 Web Speech API 가 차단되므로,
+// 프론트가 녹음한 오디오(바이너리)를 받아 서버에서 텍스트로 변환한다.
+async function handleSTT(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  if (request.method !== "POST") return json({ error: "POST 메서드만 허용됩니다." }, 405);
+  if (!env.AI) return json({ error: "no_ai_binding" }, 503);
+
+  let bytes;
+  try {
+    const buf = await request.arrayBuffer();
+    bytes = new Uint8Array(buf);
+  } catch (e) {
+    return json({ error: "bad_audio", detail: String(e) }, 400);
+  }
+  if (!bytes || !bytes.length) return json({ error: "empty_audio" }, 400);
+
+  // 1순위: whisper-large-v3-turbo (base64 입력, language 지정 가능 → 한국어 정확도 ↑)
+  try {
+    let bin = "";
+    const CH = 0x8000;
+    for (let i = 0; i < bytes.length; i += CH) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    }
+    const b64 = btoa(bin);
+    const r = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
+      audio: b64, language: "ko", task: "transcribe",
+    });
+    const text = (r && (r.text || r.transcription) || "").trim();
+    return json({ text });
+  } catch (e1) {
+    // 2순위 폴백: 기본 whisper (바이트 배열 입력)
+    try {
+      const r = await env.AI.run("@cf/openai/whisper", { audio: [...bytes] });
+      const text = (r && r.text || "").trim();
+      return json({ text });
+    } catch (e2) {
+      return json({ error: "stt_failed", detail: String(e2) }, 502);
+    }
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/chat") return handleChat(request, env);
     if (url.pathname === "/api/tts")  return handleTTS(request, env);
+    if (url.pathname === "/api/stt")  return handleSTT(request, env);
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Not found", { status: 404 });
   },

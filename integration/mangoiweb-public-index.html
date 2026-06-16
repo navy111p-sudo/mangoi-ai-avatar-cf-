@@ -152,6 +152,10 @@
         w.classList.toggle("open", open);
         t.textContent = open ? "✖️" : "💁‍♀️";
         t.setAttribute("aria-label", open ? "AI 상담직원 닫기" : "AI 상담직원 열기");
+        if(open){   // 열릴 때 상담직원이 인사말을 먼저 음성으로 말하도록 신호 전송
+          var f=document.getElementById("mangoi-frame");
+          try{ f && f.contentWindow && f.contentWindow.postMessage("mangoi-greet","*"); }catch(e){}
+        }
       }
       t.addEventListener("click", function(){ setOpen(!w.classList.contains("open")); });
       window.addEventListener("message", function(e){
