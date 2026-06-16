@@ -44,7 +44,7 @@ git init
 git add .
 git commit -m "mangoi ai avatar - cloudflare 배포판"
 git branch -M main
-git remote add origin https://github.com/navy111p-sudo/mangoi-develop2.git
+git remote add origin https://github.com/navy111p-sudo/mangoi-ai-avatar-cf-.git
 git push -u origin main
 ```
 > ⚠️ `.dev.vars`, `.env` 는 `.gitignore`로 제외돼 있어 키가 깃허브에 올라가지 않습니다.

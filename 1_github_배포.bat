@@ -4,7 +4,7 @@ setlocal
 REM === Mangoi AI Avatar - GitHub upload script (ASCII only, safe on Korean Windows) ===
 REM Just double-click this file. It runs git init/add/commit/push automatically.
 
-set REMOTE_URL=https://github.com/navy111p-sudo/mangoi-develop2.git
+set REMOTE_URL=https://github.com/navy111p-sudo/mangoi-ai-avatar-cf-.git
 
 cd /d "%~dp0"
 echo.
@@ -50,7 +50,7 @@ if errorlevel 1 (
 echo.
 echo ====================================================
 echo  DONE! Now connect this repo on Cloudflare Workers ^& Pages.
-echo   - Import a repository: mangoi-develop2  (deploy command: npx wrangler deploy)
+echo   - Import a repository: mangoi-ai-avatar-cf-  (deploy command: npx wrangler deploy)
 echo   - (Optional) Add Secret TYPECAST_API_KEY for Typecast voice
 echo ====================================================
 echo.
