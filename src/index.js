@@ -90,7 +90,9 @@ function extractStudentName(msg) {
   if (!msg) return "";
   // 공백/구두점으로 단어 분리(한글 범위 정규식 없이)
   const words = msg.split(/[\s,.!?~"'`()\[\]{}…·\-:;/\\]+/).filter(Boolean);
-  const stop = ["포인트","포인트는","점수","잔액","적립","사용","충전","차감","기프티콘","학생","학생의","님","얼마","조회","검색","보여줘","알려줘","알고","싶어","싶어요","좀","현재","지금","의","이름","누적","내역","확인","해줘","주세요","해주세요","무엇","뭐야","뭐예요"];
+  const stop = ["포인트","포인트는","점수","잔액","적립","사용","충전","차감","기프티콘","학생","학생의","님","얼마","조회","검색","보여줘","알려줘","알고","싶어","싶어요","좀","현재","지금","의","이름","누적","내역","확인","해줘","주세요","해주세요","무엇","뭐야","뭐예요",
+    // [수정] 키워드 뒤 일반 명사/동작어가 학생 이름으로 오인되던 버그 보강
+    "교환","교환해","바꿔","바꾸기","변경","교체","방법","어떻게","얼마나","상품","쿠폰","기프트","적립금","사용처","문의","관련","대해"];
   for (const w of words) {
     if (stop.indexOf(w) >= 0) continue;
     // 한글 2~4자 이름
@@ -176,7 +178,7 @@ function detectMenu(msg) {
   return null;
 }
 
-function extractGo(text) {
+function extractGo(text, lang) {
   let go = null;
   const m = text.match(/\[\[\s*GO\s*:\s*([a-zA-Z_\-]+)\s*\]\]/);
   if (m) {
@@ -187,7 +189,9 @@ function extractGo(text) {
     .replace(/\[\[\s*GO\s*:[^\]]*\]\]/gi, "")
     .replace(/\[\[\s*GO[^\]]*\]?\]?/gi, "")
     .trim();
-  return { answer: clean || "음, 다시 한 번 말씀해 주시겠어요?", go: go };
+  // [수정] 언어별 폴백 (영어 사용자에게 한국어가 노출되던 버그 수정)
+  const fallback = lang === "en" ? "Sorry, could you say that again?" : "음, 다시 한 번 말씀해 주시겠어요?";
+  return { answer: clean || fallback, go: go };
 }
 
 // 한글(가-힣) 포함 여부 — 번들러의 유니코드 리터럴 처리에 영향받지 않도록 코드포인트로 검사
@@ -239,7 +243,7 @@ async function handleChat(request, env) {
 
   try {
     const r = await callAI(message, env, lang);
-    const parsed = extractGo(r.answer);
+    const parsed = extractGo(r.answer, lang);
     let answer = stripLeakedCodes(parsed.answer);
     // 답변 끝에 '○○ 메뉴로 열어드릴까요?'를 붙이고, 부모 관리자 페이지에서 해당 메뉴로 이동시킬 신호(go) 전달
     const menu = detectMenu(message);
