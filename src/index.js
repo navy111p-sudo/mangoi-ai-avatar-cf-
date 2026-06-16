@@ -161,64 +161,14 @@ async function handleChat(request, env) {
 }
 
 // ===== 음성 합성 (Typecast) =====
-// 인사 영상(talking avatar)에 쓴 목소리 '재선'으로 답변도 통일.
-// - 우선순위: TYPECAST_VOICE_ID(직접 지정) > 이름매칭(TYPECAST_VOICE_NAME, 기본 '재선') > 기본 여성 보이스.
-const DEFAULT_VOICE_NAME = "재선";
-let cachedVoiceId = null;            // 동일 isolate 재사용
-let cachedVoiceModel = "ssfm-v30";   // 매칭된 보이스의 모델(없으면 기본)
+// 인사 영상(talking avatar)에 쓴 목소리 '재선'(Jaesun, female)으로 답변도 통일.
+// Typecast 보이스 목록에서 확인한 실제 voice_id 를 고정 사용.
+// 변경하려면 Cloudflare 시크릿 TYPECAST_VOICE_ID 로 덮어쓸 수 있음.
+const JAESUN_VOICE_ID = "tc_684a7a1446e2a628b5b07230"; // '재선'(Jaesun) ssfm-v30
+const VOICE_MODEL = "ssfm-v30";
 
-function voiceMatchesName(v, name) {
-  if (!v || !name) return false;
-  const n = String(name).toLowerCase();
-  // 이름이 들어갈 만한 필드들 + 안전망으로 객체 전체를 직렬화해 포함 검사
-  const fields = [v.name, v.voice_name, v.display_name, v.title, v.label]
-    .filter(Boolean).map((x) => String(x).toLowerCase());
-  if (fields.some((f) => f.includes(n))) return true;
-  try { return JSON.stringify(v).toLowerCase().includes(n); } catch (_) { return false; }
-}
-
-async function fetchVoices(env, query) {
-  try {
-    const r = await fetch("https://api.typecast.ai/v2/voices?" + query,
-      { headers: { "X-API-KEY": env.TYPECAST_API_KEY } });
-    if (!r.ok) return null;
-    const data = await r.json();
-    const list = Array.isArray(data) ? data : (data && (data.voices || data.data || data.result));
-    return Array.isArray(list) ? list : null;
-  } catch (_) { return null; }
-}
-
-async function pickVoiceId(env) {
-  if (env.TYPECAST_VOICE_ID) return env.TYPECAST_VOICE_ID;
-  if (cachedVoiceId) return cachedVoiceId;
-
-  const wantName = env.TYPECAST_VOICE_NAME || DEFAULT_VOICE_NAME;
-
-  // 1) 이름으로 매칭 ('재선'). 먼저 ssfm-v30, 없으면 전체 모델에서 찾고 그 보이스의 모델을 사용.
-  const ssfm = await fetchVoices(env, "model=ssfm-v30");
-  if (ssfm) {
-    const hit = ssfm.find((v) => v && v.voice_id && voiceMatchesName(v, wantName));
-    if (hit) { cachedVoiceId = hit.voice_id; cachedVoiceModel = hit.model || "ssfm-v30"; return cachedVoiceId; }
-  }
-  const allVoices = await fetchVoices(env, "");   // 모델 필터 없이 전체
-  if (allVoices) {
-    const hit = allVoices.find((v) => v && v.voice_id && voiceMatchesName(v, wantName));
-    if (hit) { cachedVoiceId = hit.voice_id; cachedVoiceModel = hit.model || "ssfm-v30"; return cachedVoiceId; }
-  }
-
-  // 2) 폴백: 기본 여성 young_adult 보이스(ssfm-v30)
-  const female = await fetchVoices(env, "model=ssfm-v30&gender=female&age=young_adult");
-  if (female) {
-    const v = female.find((x) => x && x.voice_id);
-    if (v) { cachedVoiceId = v.voice_id; cachedVoiceModel = "ssfm-v30"; return cachedVoiceId; }
-  }
-
-  // 3) 최후: 전체 목록 첫 보이스
-  if (ssfm) {
-    const v = ssfm.find((x) => x && x.voice_id);
-    if (v) { cachedVoiceId = v.voice_id; cachedVoiceModel = "ssfm-v30"; return cachedVoiceId; }
-  }
-  return null;
+function pickVoiceId(env) {
+  return (env && env.TYPECAST_VOICE_ID) || JAESUN_VOICE_ID;
 }
 
 async function handleTTS(request, env) {
@@ -239,7 +189,7 @@ async function handleTTS(request, env) {
   const payload = {
     voice_id: voiceId,
     text: text,
-    model: cachedVoiceModel || "ssfm-v30",
+    model: VOICE_MODEL,
     language: "kor",
     prompt: { emotion_type: "preset", emotion_preset: "happy", emotion_intensity: 1 },
     output: { volume: 100, audio_pitch: 0, audio_tempo: 1, audio_format: "mp3" },
