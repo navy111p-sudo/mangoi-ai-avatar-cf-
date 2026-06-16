@@ -251,13 +251,13 @@
   // === 다국어 ===
   var I18N={
     ko:{ hdr:"AI 운영 비서", status:"온라인", ph:"무엇이든 입력하거나 🎤로 말해보세요", send:"전송", mic:"음성으로 질문하기",
-         greetLead:"안녕하세요 매니저님! 저는 망고아이 <b>AI 운영 비서</b>예요 👩‍💼",
+         greetLead:"안녕하세요 관리자님! 저는 망고아이 <b>AI 운영 비서</b>예요 👩‍💼",
          greetSub:"평가서 작성·실시간 이상감지 대응·정산·알림까지 도와드릴게요.<br>아래 항목을 누르면 바로 도와드릴게요 👇",
-         greetSpeak:"안녕하세요 매니저님! 저는 망고아이 AI 운영 비서예요. 평가서 작성, 실시간 이상감지 대응, 정산과 알림까지 도와드릴게요." },
+         greetSpeak:"안녕하세요 관리자님! 저는 망고아이 AI 운영 비서예요. 평가서 작성, 실시간 이상감지 대응, 정산과 알림까지 도와드릴게요." },
     en:{ hdr:"AI Operations Assistant", status:"Online", ph:"Type anything or tap 🎤 to speak", send:"Send", mic:"Ask by voice",
-         greetLead:"Hello, manager! I'm Mangoi's <b>AI Operations Assistant</b> 👩‍💼",
+         greetLead:"Hello, admin! I'm Mangoi's <b>AI Operations Assistant</b> 👩‍💼",
          greetSub:"I can help with evaluations, real-time anomaly response, settlements and alerts.<br>Tap an item below to get started 👇",
-         greetSpeak:"Hello, manager! I'm Mangoi's AI Operations Assistant. I can help with evaluations, real-time anomaly response, settlements and alerts." }
+         greetSpeak:"Hello, admin! I'm Mangoi's AI Operations Assistant. I can help with evaluations, real-time anomaly response, settlements and alerts." }
   };
   // 운영비서 메뉴(클릭 → 프리셋 질문 전송)
   var MENUS={
@@ -311,10 +311,14 @@
     var mi=subtitle.querySelector(".menu-item");
     if(mi){ var bub=mi.closest(".bubble"); if(bub) bub.parentNode.removeChild(bub); }
   }
-  // 메뉴 → 부모(관리자 페이지)에 해당 메뉴 열기 요청(예: 회계 관리)
-  function openParentGo(go){
+  // 부모(관리자 페이지)로 메뉴 열기 신호 전송. q = 학생 검색어 등 부가 정보(선택)
+  function postParentOpen(go, q){
     stopGreetVideo();
-    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go}, "*"); }catch(e){} }
+    if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go, q:(q||"")}, "*"); }catch(e){} }
+  }
+  // 메뉴 버튼 → 부모에 해당 메뉴 열기 요청(예: 회계 관리)
+  function openParentGo(go){
+    postParentOpen(go, "");
     clearMenus();
     appendBot(uiLang==="en"?"Opening the Accounting management menu…":"회계 관리 메뉴로 이동할게요. 😊");
   }
@@ -388,9 +392,17 @@
     subtitle.appendChild(d); subtitle.scrollTop=subtitle.scrollHeight;
     return d;
   }
-  function deliver(ans){
-    appendBot(escHtml(ans).replace(/\n/g,"<br>"));
-    speak(ans);
+  // 답변 아래 '○○ 메뉴 열기' 버튼 — 클릭하면 부모(관리자 페이지)의 해당 메뉴로 이동
+  function appendOpenButton(label, go, q){
+    var b=document.createElement("button");
+    b.type="button"; b.className="menu-item";
+    b.innerHTML='<span>📂 '+escHtml(label)+(uiLang==="en"?" — open":" 메뉴 열기")+'</span><span class="arr">↗</span>';
+    b.addEventListener("click", function(){
+      postParentOpen(go, q||"");
+      b.disabled=true; b.style.opacity="0.6";
+      appendBot(uiLang==="en"?"Opening the menu… 😊":"메뉴를 열게요. 😊");
+    });
+    subtitle.appendChild(b); subtitle.scrollTop=subtitle.scrollHeight;
   }
 
   function send(){
@@ -408,6 +420,8 @@
         if(thinking){ thinking.innerHTML=escHtml(ans).replace(/\n/g,"<br>"); }
         subtitle.scrollTop=subtitle.scrollHeight;
         speak(ans);
+        // 답변에 이동 신호(go)가 있으면 '○○ 메뉴 열기' 버튼을 띄운다(클릭 시 부모 관리자 메뉴로 이동, 질문 원문=학생 검색어)
+        if(d && d.go){ appendOpenButton(d.goLabel||(uiLang==="en"?"this menu":"메뉴"), d.go, msg); }
       })
       .catch(function(){
         var ans=(uiLang==="en")?"The connection dropped. Please try again.":"연결이 잠깐 끊겼어요. 다시 시도해 주세요.";
