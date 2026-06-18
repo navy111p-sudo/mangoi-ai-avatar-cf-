@@ -21,7 +21,7 @@ call npm install
 if errorlevel 1 ( echo [ERROR] npm install failed. & pause & exit /b 1 )
 echo.
 
-echo [2/3] Deploying worker to Cloudflare...
+echo [2/2] Deploying worker to Cloudflare...
 call npx wrangler deploy --config "%~dp0wrangler.toml"
 if errorlevel 1 (
   echo.
@@ -32,16 +32,14 @@ if errorlevel 1 (
 )
 echo.
 
-echo [3/3] Set your Gemini API key as a secret.
-echo When prompted "Enter a secret value", paste your key (AIza...) and press Enter.
-echo (No key yet? Get a free one at https://aistudio.google.com/apikey )
-call npx wrangler secret put GEMINI_API_KEY --config "%~dp0wrangler.toml" --name mangoi-ai-avatar-cf
+echo NOTE: This worker uses Cloudflare Workers AI (no external key needed).
+echo (Optional) For Typecast voice, set the secret once:
+echo     npx wrangler secret put TYPECAST_API_KEY --config "%~dp0wrangler.toml"
 
 echo.
 echo ====================================================
 echo  DONE! The avatar URL is shown above (ends with .workers.dev).
 echo  Open that URL in a browser to test the chat.
-echo  Then paste the URL back to Claude to finish the website link.
 echo ====================================================
 echo.
 pause

@@ -1,0 +1,28 @@
+﻿b9097dc9f8b7e377eb1ca5bb573751708308e5d3	2026-06-16 23:02:58 +0900	feat: mangoi ai avatar - cloudflare deploy
+e542f6369cefe2989fc1b3ba2bdcb05c78625015	2026-06-16 22:50:54 +0900	feat: mangoi ai avatar - cloudflare deploy
+3a19ec1ba653d3571703dc92ee1e19b0a2d88b22	2026-06-16 22:26:32 +0900	feat: mangoi ai avatar - cloudflare deploy
+aea0d48d82bdffaa6ecde3cffa6786f40c8eff7f	2026-06-16 20:23:10 +0900	feat: mangoi ai avatar - cloudflare deploy
+e984ee4c74a780a872c1526e17eec9a00b7883a7	2026-06-16 20:10:03 +0900	feat: mangoi ai avatar - cloudflare deploy
+52d58771347c0a01543789c535216715590c8195	2026-06-16 19:12:17 +0900	feat: mangoi ai avatar - cloudflare deploy
+3ecca4a795bf0614d635ca03fff20e955d31a679	2026-06-16 19:00:36 +0900	feat: mangoi ai avatar - cloudflare deploy
+e02fe9f0f287695cfcae2c1ffcd6578606c2904c	2026-06-16 18:49:14 +0900	feat: mangoi ai avatar - cloudflare deploy
+43a2b124ec7a1df0e7d167942367bef759dc7f0a	2026-06-16 18:39:14 +0900	feat: mangoi ai avatar - cloudflare deploy
+6a2727b56fb81a1770fa6e34ddcb85a53f13c70e	2026-06-16 17:40:56 +0900	feat: AI 상담직원 열릴 때 인사말 자동 음성 재생
+f8b088c59af0e391dad49b0d7069898ea5da3a11	2026-06-15 05:19:55 +0900	fix(i18n): sync chat panel language with site toggle (header+greeting+placeholder)
+fe15190c9360bf3655aa78960b1dafd8de79928a	2026-06-15 05:12:27 +0900	fix(qa): prefer explicit message keyword over model GO tag
+6cf39938bd732d617f81244ca91b3e9c70f1145d	2026-06-15 05:09:26 +0900	fix(qa): precheck vs leveltest disambiguation (수업 진단 -> precheck)
+e7e87b16f2028bf7106b2d9c1ff48714ea3254a0	2026-06-15 04:38:55 +0900	fix(go): robust yes-detection + all-menu fallback
+6a73751480d1e08aeec7016de2bcd0040ea89d80	2026-06-15 04:10:29 +0900	fix(go): reliable page-open via leaked-code fallback + server tag
+c3c38673e509314f0a59ea7c6dd2ec105c90388e	2026-06-15 04:01:57 +0900	fix(chat): single-language personas selected by detection (restore Korean quality)
+5f2a219dd46e51b33ac9333be1cfe2d36e07396c	2026-06-15 03:54:20 +0900	fix(chat): robust Korean detection via code points (bundler-safe)
+e49e5603f618f986e22e1c76c4195b0d0a3965b3	2026-06-15 03:37:17 +0900	fix(chat): detect message language to pick persona (full English incl. GO prompt)
+59ee206721720d703dfbec5a83e1e11a91cf80de	2026-06-15 03:35:05 +0900	fix(chat): reply in the language of the user's message + auto TTS language
+93a39d9478e8ee404617312f9f9a2b7a37d1986d	2026-06-15 03:25:41 +0900	feat(avatar): English support (recognition, UI, browser TTS, chat lang)
+cf232f64f99d830c3fe7a6b263c0b81a03245eeb	2026-06-15 03:03:18 +0900	feat(avatar): voice input (mic) for chat — ko-KR speech recognition
+22f4e542be57865d92edaed8e367ea96bed016f5	2026-06-15 02:32:01 +0900	feat(avatar): notify parent on chat typing
+bbf36cb7480bb7b41244f6569a05a16dcdcf5c94	2026-06-15 02:15:49 +0900	feat(avatar): volume-based lip sync
+18f5359ef2a6955f1a171c743040014bad60a452	2026-06-15 02:11:17 +0900	feat(avatar): stop voice on outside click / navigation
+19f8988c1d4bfcd1d595325f4ec1fa62943f9fda	2026-06-15 01:03:23 +0900	fix(avatar): unlock audio/video on first gesture for mobile TTS playback
+3e464016e71c52d95b1dcf997e62cfd8834e5370	2026-06-14 20:28:57 +0900	feat: mangoi ai avatar - cloudflare deploy
+d5e2961bd5ff6e54892848c75994f4aa801bab35	2026-06-14 19:43:27 +0900	feat: mangoi ai avatar - cloudflare deploy
+6289e4799b038d3f15aafe93b88e0ea2acd9fe14	2026-06-14 19:34:03 +0900	feat: mangoi ai avatar - cloudflare deploy

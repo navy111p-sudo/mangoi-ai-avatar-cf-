@@ -13,6 +13,9 @@ binding = "ASSETS"
 binding = "AI"
 
 # 환경변수(시크릿)는 코드/깃허브에 적지 않습니다.
-# 운영 키:  Cloudflare 대시보드 → 이 Worker → Settings → Variables and Secrets → GEMINI_API_KEY
-#   또는:  npx wrangler secret put GEMINI_API_KEY
-# 로컬 키:  .dev.vars 파일의 GEMINI_API_KEY (git 에 안 올라감)
+# 챗/STT 는 위 Workers AI(AI 바인딩)로 동작하며 별도 키가 필요 없습니다.
+# TTS(Typecast)만 키가 필요합니다(없으면 브라우저 음성으로 자동 폴백):
+# 운영 키:  Cloudflare 대시보드 → 이 Worker → Settings → Variables and Secrets → TYPECAST_API_KEY
+#   또는:  npx wrangler secret put TYPECAST_API_KEY
+# 로컬 키:  .dev.vars 파일의 TYPECAST_API_KEY (git 에 안 올라감)
+# (선택) 고정 보이스: TYPECAST_VOICE_ID(운영비서) / TYPECAST_VOICE_ID_STUDENT(학생)

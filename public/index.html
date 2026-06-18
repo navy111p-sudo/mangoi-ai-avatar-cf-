@@ -65,6 +65,19 @@
   #mic-btn:hover { background:#26345a; }
   #mic-btn.listening { background:#e53935; color:#fff; border-color:#e53935; animation:micPulse 1s infinite; }
   @keyframes micPulse { 0%{ box-shadow:0 0 0 0 rgba(229,57,53,0.6); } 70%{ box-shadow:0 0 0 10px rgba(229,57,53,0); } 100%{ box-shadow:0 0 0 0 rgba(229,57,53,0); } }
+  /* 🎤 마이크 안내 말풍선 — 마이크를 누르는 동안(빨간불)만 표시, 꼬리가 마이크를 가리킴 */
+  #mic-tip { position:absolute; right:12px; bottom:74px; max-width:250px;
+    background:rgba(38,42,52,0.94); color:#f3f5fa; font-size:13px; line-height:1.55;
+    padding:11px 14px; border-radius:14px; border:1px solid rgba(255,255,255,0.12);
+    box-shadow:0 8px 22px rgba(0,0,0,0.5); z-index:60; pointer-events:none;
+    opacity:0; transform:translateY(6px) scale(0.96); transform-origin:bottom right;
+    transition:opacity .18s ease, transform .18s ease; }
+  #mic-tip.show { opacity:1; transform:translateY(0) scale(1); }
+  #mic-tip .hot { color:#ff6b6b; font-weight:800; }
+  #mic-tip b { color:#ffd24a; }
+  #mic-tip::after { content:""; position:absolute; right:24px; bottom:-9px;
+    border-width:10px 9px 0 9px; border-style:solid;
+    border-color:rgba(38,42,52,0.94) transparent transparent transparent; }
 </style>
 </head>
 <body>
@@ -97,6 +110,7 @@
       </div>
       <button id="mic-btn" type="button" aria-label="음성으로 질문하기" title="음성으로 질문하기">🎤</button>
     </div>
+    <div id="mic-tip">🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 비서가 답변합니다.</div>
   </div>
 
 <script>
@@ -220,7 +234,7 @@
     var ac=("AbortController" in window)?new AbortController():null;
     ttsAbort=ac;
     fetch("/api/tts",{ method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({text:text}), signal: ac?ac.signal:undefined })
+      body:JSON.stringify({text:text, mode:"ops"}), signal: ac?ac.signal:undefined })
       .then(function(r){ if(!r.ok) throw new Error("tts "+r.status); return r.blob(); })
       .then(function(blob){
         if(mySeq!==speakSeq) throw {name:"AbortError"};
@@ -277,6 +291,30 @@
 
   function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
+  // 환불 기준표 (공식 refund.html 수치와 일치: 시작 전 100% / 1·3 이전 70% / 1·2 이전 50% / 1·2 이후 0%)
+  function refundTableHTML(lang){
+    var en=(lang==="en");
+    var head=en?["Time of refund request","Refund"]:["환불 요구 시기","환불 금액"];
+    var rows=en
+      ?[["Before classes begin","100%"],["Before 1/3 of total hours","70%"],["Before 1/2 of total hours","50%"],["After 1/2 of total hours","0%"]]
+      :[["수업 시작 전","100%"],["총 수업시간의 1/3 이전","70%"],["총 수업시간의 1/2 이전","50%"],["총 수업시간의 1/2 이후","0%"]];
+    var th="border:1px solid rgba(255,255,255,0.15);padding:7px 9px;font-weight:700;background:#222c46;";
+    var td="border:1px solid rgba(255,255,255,0.12);padding:7px 9px;";
+    var h='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;color:#e8ecf5;">'
+      +'<thead><tr><th style="'+th+'text-align:left;">'+head[0]+'</th><th style="'+th+'text-align:right;">'+head[1]+'</th></tr></thead><tbody>';
+    for(var i=0;i<rows.length;i++){
+      var last=(i===rows.length-1);
+      h+='<tr><td style="'+td+'">'+rows[i][0]+'</td>'
+        +'<td style="'+td+'text-align:right;font-weight:800;color:'+(last?"#ff8a80":"#7fe3a0")+';">'+rows[i][1]+'</td></tr>';
+    }
+    h+='</tbody></table>'
+      +'<div style="font-size:11px;color:#9fb0d6;margin-top:6px;">'
+      +(en?"* Based on the lessons enrolled; reference date = the day the refund is requested."
+          :"* ‘총 수업시간’은 신청한 전체 수업 횟수 기준이며, 기준일은 환불 신청일이에요.")
+      +'</div>';
+    return h;
+  }
+
   function greetingHTML(){
     var t=I18N[uiLang]||I18N.ko;
     var menus=MENUS[uiLang]||MENUS.ko;
@@ -315,6 +353,12 @@
   function postParentOpen(go, q){
     stopGreetVideo();
     if(window.parent!==window){ try{ window.parent.postMessage({type:"mangoi-open", go:go, q:(q||"")}, "*"); }catch(e){} }
+  }
+  // "열어줘/열어/보여줘/이동/가줘/띄워줘" 등 직접 열기 의도 감지(영문 open/show/go to 포함)
+  function wantsOpen(msg){
+    var s=String(msg||"").toLowerCase();
+    if(/열어|열기|띄워|보여|이동|가줘|가자|들어가|바로\s*가|open|show|go to|take me/.test(s)) return true;
+    return false;
   }
   // 메뉴 버튼 → 부모에 해당 메뉴 열기 요청(예: 회계 관리)
   function openParentGo(go){
@@ -413,15 +457,23 @@
     input.value=""; sendBtn.disabled=true;
     var thinking=appendBot(uiLang==="en"?"…thinking":"답변을 준비하고 있어요…");
     fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({message:msg, lang:uiLang}) })
+      body:JSON.stringify({message:msg, lang:uiLang, mode:"ops"}) })
       .then(function(r){ return r.json(); })
       .then(function(d){
         var ans=(d && d.answer) || (uiLang==="en"?"Sorry, could you say that again?":"음, 다시 한 번 말씀해 주시겠어요?");
-        if(thinking){ thinking.innerHTML=escHtml(ans).replace(/\n/g,"<br>"); }
+        if(thinking){
+          var body=escHtml(ans).replace(/\n/g,"<br>");
+          if(d && d.refund){ body+=refundTableHTML(uiLang); }   // 환불 질문이면 기준표를 함께 표시
+          thinking.innerHTML=body;
+        }
         subtitle.scrollTop=subtitle.scrollHeight;
         speak(ans);
         // 답변에 이동 신호(go)가 있으면 '○○ 메뉴 열기' 버튼을 띄운다(클릭 시 부모 관리자 메뉴로 이동, 질문 원문=학생 검색어)
-        if(d && d.go){ appendOpenButton(d.goLabel||(uiLang==="en"?"this menu":"메뉴"), d.go, msg); }
+        if(d && d.go){
+          appendOpenButton(d.goLabel||(uiLang==="en"?"this menu":"메뉴"), d.go, msg);
+          // "열어줘/보여줘" 등 직접 열기 의도면 버튼 클릭을 기다리지 않고 바로 부모 메뉴를 연다
+          if(wantsOpen(msg)){ postParentOpen(d.go, msg); }
+        }
       })
       .catch(function(){
         var ans=(uiLang==="en")?"The connection dropped. Please try again.":"연결이 잠깐 끊겼어요. 다시 시도해 주세요.";
@@ -448,7 +500,15 @@
   // === 음성 입력(마이크) — 녹음 후 서버(Whisper)로 인식 ===
   var micBtn=document.getElementById("mic-btn");
   var listening=false, mediaRec=null, recStream=null, recChunks=[], recTimer=null, recAborted=false;
-  function setListening(on){ listening=on; if(micBtn) micBtn.classList.toggle("listening", on); }
+  function setListening(on){ listening=on; if(micBtn) micBtn.classList.toggle("listening", on);
+    var tip=document.getElementById("mic-tip");
+    if(tip){
+      if(on){ tip.innerHTML = (uiLang==="en")
+          ? '🎤 Press the <b>mic</b> and ask while the light is <span class="hot">red</span>. Press again and the assistant replies.'
+          : '🎤 <b>마이크</b>를 누르고 <span class="hot">빨간불</span>일 때 질문하세요. 다시 누르면 비서가 답변합니다.'; }
+      tip.classList.toggle("show", on);   // 마이크 누르면(녹음 시작) 표시, 다시 누르면(종료) 사라짐
+    }
+  }
   function stopListening(){ if(mediaRec && listening){ recAborted=true; try{ mediaRec.stop(); }catch(e){} } }
   function transcribe(blob){
     var note=appendBot(uiLang==="en"?"transcribing…":"음성을 인식하고 있어요…");

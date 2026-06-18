@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>망고아이 · 모바일 메인 (리디자인)</title>
+<style>
+  /* ===== 디자인 토큰 ===== */
+  :root{
+    --bg:#0e1116;            /* 어두운 배경 */
+    --bg-soft:#161b22;
+    --card:#1c232d;
+    --line:rgba(255,255,255,.08);
+    --text:#f3f6fb;          /* 본문 */
+    --muted:#9aa6b2;         /* 보조 텍스트 */
+    --brand:#ff7a18;         /* 망고 오렌지 */
+    --brand-2:#ffb547;
+    --kakao:#fee500;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    --fab-size:60px;         /* FAB 지름 */
+    --fab-gap:14px;          /* FAB 화면 여백 */
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* 모바일 프레임(데모용) */
+  .phone{max-width:420px;margin:0 auto;min-height:100vh;position:relative;overflow:hidden;display:flex;flex-direction:column}
+
+  /* ===== 우주 배경(기존 이미지 유지) =====
+     실제 적용 시 아래 --space-img 값에 기존 우주 이미지 URL만 넣으면 됩니다.
+     예) --space-img: url('/img/space-bg.jpg');
+     지금은 이미지가 없을 때를 대비해 CSS 별밤(starfield)로 대체 표시합니다. */
+  .phone::before{
+    content:"";position:absolute;inset:0;z-index:0;
+    background:
+      var(--space-img, none),
+      radial-gradient(2px 2px at 20% 30%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 70% 20%, #cfe0ff, transparent),
+      radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent),
+      radial-gradient(2px 2px at 85% 60%, #ffe7c2, transparent),
+      radial-gradient(1px 1px at 60% 85%, #fff, transparent),
+      radial-gradient(1200px 700px at 75% 0%, #2a1c4a, transparent 60%),
+      radial-gradient(1000px 700px at 10% 30%, #102046, transparent 55%),
+      linear-gradient(180deg, #0a0e1a, #070912);
+    background-size:cover;background-position:center;
+  }
+  /* 가독성 확보용 살짝의 어둠막(이미지가 밝아도 텍스트가 보이게) */
+  .phone::after{
+    content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(180deg, rgba(7,9,18,.35), rgba(7,9,18,.15) 40%, rgba(7,9,18,.55));
+  }
+  .phone > *{position:relative;z-index:1}  /* 콘텐츠는 배경 위로 */
+
+  /* ===== 우주 장식 레이어 (우주인·비행접시·행성) =====
+     배경(z0)과 콘텐츠(z1) 사이. 클릭은 통과시켜 UI 조작을 방해하지 않음.
+     실제 망고아이 에셋(astronaut/mango-ufo/saturn) 이미지를 사용합니다. */
+  .space-decor{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .decor{position:absolute;will-change:transform;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45))}
+
+  /* 행성들 — 천천히 떠다니며 자전 */
+  .planet-1{top:9%;left:-30px;width:130px;height:auto;opacity:.92;animation:float 9s ease-in-out infinite}
+  .planet-2{top:36%;right:-34px;width:96px;height:auto;opacity:.88;animation:float 11s ease-in-out infinite reverse}
+
+  /* 비행접시 — 위아래 부유 + 좌우 약간 드리프트 */
+  .ufo{top:19%;right:12%;width:104px;height:auto;animation:ufoDrift 7s ease-in-out infinite}
+
+  /* 우주인 — 무중력처럼 천천히 떠다니며 회전 */
+  .astro{bottom:23%;left:6%;width:92px;height:auto;animation:floatRotate 12s ease-in-out infinite}
+
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  @keyframes floatRotate{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-20px) rotate(6deg)}}
+  @keyframes ufoDrift{0%,100%{transform:translate(0,0)}25%{transform:translate(-10px,-12px)}50%{transform:translate(6px,-6px)}75%{transform:translate(-6px,-14px)}}
+
+  /* ============================================
+     1) 상단 헤더 — 프로필만 노출 + 필터는 토글
+     ============================================ */
+  .topbar{
+    position:sticky;top:0;z-index:30;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:calc(14px + env(safe-area-inset-top,0px)) 18px 12px;
+    background:linear-gradient(180deg, rgba(14,17,22,.92), rgba(14,17,22,.55) 70%, transparent);
+    backdrop-filter:blur(8px);
+  }
+  .profile{display:flex;align-items:center;gap:10px}
+  .avatar{
+    width:42px;height:42px;border-radius:50%;
+    background:linear-gradient(135deg,var(--brand),var(--brand-2));
+    display:grid;place-items:center;font-weight:700;color:#1a1206;font-size:16px;
+    box-shadow:0 4px 14px rgba(255,122,24,.35);
+  }
+  .profile .who{line-height:1.2}
+  .profile .hi{font-size:12px;color:var(--muted)}
+  .profile .name{font-size:16px;font-weight:700}
+
+  /* 우측: 필터 토글 버튼(평소엔 아이콘 하나) */
+  .filter-toggle{
+    display:flex;align-items:center;gap:6px;
+    height:40px;padding:0 14px;border:1px solid var(--line);border-radius:999px;
+    background:var(--bg-soft);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .filter-toggle .dot{width:7px;height:7px;border-radius:50%;background:var(--brand)}
+  .filter-toggle svg{transition:transform .25s ease}
+  .filter-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+  /* 펼쳐지는 필터 패널(평소엔 접힘) */
+  .filter-panel{
+    overflow:hidden;max-height:0;opacity:0;
+    transition:max-height .32s ease, opacity .25s ease;
+    padding:0 18px;
+  }
+  .filter-panel.open{max-height:200px;opacity:1;padding-bottom:8px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+  .chip{
+    height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line);
+    background:var(--card);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;
+    transition:.18s;
+  }
+  .chip.active,.chip:hover{background:var(--brand);border-color:transparent;color:#1a1206}
+
+  /* ============================================
+     2) 중앙 검색 — 안전여백 + 명도대비
+     ============================================ */
+  .stage{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:24px 20px;
+    /* FAB/하단바에 가리지 않도록 안전 여백 확보 */
+    padding-bottom:calc(var(--fab-size) + var(--fab-gap)*2 + 24px + var(--safe-bottom));
+  }
+  .stage h1{font-size:26px;font-weight:800;letter-spacing:-.5px;margin:0 0 18px;text-align:center}
+  .stage h1 span{color:var(--brand-2)}
+
+  .search{
+    width:100%;max-width:360px;position:relative;
+  }
+  .search input{
+    width:100%;height:56px;border-radius:16px;
+    padding:0 18px 0 50px;
+    font-size:16px;color:var(--text);
+    /* 명도 대비 ↑ : 더 진한 면 + 또렷한 테두리 */
+    background:rgba(255,255,255,.06);
+    border:1.5px solid rgba(255,255,255,.16);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 8px 24px rgba(0,0,0,.35);
+    outline:none;transition:.18s;
+  }
+  .search input::placeholder{color:#c2cad4}      /* 흐릿한 회색 대신 또렷하게 */
+  .search input:focus{
+    border-color:var(--brand);
+    background:rgba(255,255,255,.10);
+    box-shadow:0 0 0 4px rgba(255,122,24,.18), 0 8px 24px rgba(0,0,0,.4);
+  }
+  .search .ico{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#c2cad4}
+  .hint{margin-top:10px;text-align:center;color:var(--muted);font-size:12.5px}
+
+  /* 핵심 CTA: 수업 입장 · 결제하기 · 전체메뉴 (항상 노출) */
+  .cta-group{width:100%;max-width:360px;margin-top:22px;display:flex;flex-direction:column;gap:10px}
+  .cta-row{display:flex;gap:10px}
+  .cta{flex:1;height:52px;border-radius:14px;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    font-size:15px;font-weight:700;transition:transform .15s, box-shadow .2s}
+  .cta:active{transform:scale(.97)}
+  .cta-primary{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#1a1206;
+    box-shadow:0 8px 22px rgba(255,122,24,.4)}
+  .cta-secondary{background:rgba(255,255,255,.10);color:var(--text);
+    border:1.5px solid rgba(255,255,255,.18)}
+  .cta-ghost{height:44px;background:transparent;color:var(--muted);font-weight:600;font-size:14px;
+    border:1px solid var(--line);border-radius:12px}
+  .cta-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+
+  /* ============================================
+     3) 통합 FAB — 위로 부드럽게 확장
+     ============================================ */
+  .fab-wrap{
+    position:fixed;right:var(--fab-gap);
+    bottom:calc(var(--fab-gap) + var(--safe-bottom));
+    z-index:40;display:flex;flex-direction:column-reverse;align-items:flex-end;gap:14px;
+  }
+  /* 메인 버튼 */
+  .fab{
+    width:var(--fab-size);height:var(--fab-size);border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--brand),var(--brand-2));
+    color:#1a1206;display:grid;place-items:center;
+    box-shadow:0 10px 26px rgba(255,122,24,.45);
+    transition:transform .25s ease, box-shadow .25s;
+  }
+  .fab:active{transform:scale(.94)}
+  .fab .plus{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+  .fab-wrap.open .fab .plus{transform:rotate(45deg)}  /* + → × */
+
+  /* 펼쳐지는 액션들 */
+  .fab-actions{display:flex;flex-direction:column;align-items:flex-end;gap:14px}
+  .fab-item{display:flex;align-items:center;gap:10px;
+    /* 평소엔 숨김: 아래로 내려가 있고 투명 */
+    opacity:0;transform:translateY(14px) scale(.8);pointer-events:none;
+    transition:opacity .25s ease, transform .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .fab-wrap.open .fab-item{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+  /* 순차 등장(stagger) */
+  .fab-wrap.open .fab-item:nth-child(1){transition-delay:.02s}
+  .fab-wrap.open .fab-item:nth-child(2){transition-delay:.07s}
+  .fab-wrap.open .fab-item:nth-child(3){transition-delay:.12s}
+
+  .fab-item .label{
+    font-size:13px;font-weight:600;color:var(--text);
+    background:rgba(20,25,33,.92);padding:6px 12px;border-radius:10px;
+    border:1px solid var(--line);white-space:nowrap;
+  }
+  .mini{
+    width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;
+    display:grid;place-items:center;color:#fff;
+    box-shadow:0 8px 20px rgba(0,0,0,.35);
+  }
+  .mini.kakao{background:var(--kakao);color:#3c1e1e}
+  .mini.ai{background:linear-gradient(135deg,#6a5cff,#9b8cff)}
+  .mini.refresh{background:#243040}
+
+  /* 배경 딤(열렸을 때) */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;
+    transition:opacity .25s;z-index:35}
+  .scrim.show{opacity:1;pointer-events:auto}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+  <div class="phone">
+
+    <!-- 우주 장식: 우주인 · 비행접시 · 행성들 (실제 에셋, 클릭 통과) -->
+    <div class="space-decor" aria-hidden="true">
+      <img class="decor planet-1" src="https://webrtc-unified-platform.navy111p.workers.dev/img/saturn-left.png" alt="" />
+      <img class="decor planet-2" src="https://webrtc-unified-platform.navy111p.workers.dev/img/saturn-right.png" alt="" />
+      <img class="decor ufo"      src="https://webrtc-unified-platform.navy111p.workers.dev/img/mango-ufo.png" alt="망고 UFO" />
+      <img class="decor astro"    src="https://webrtc-unified-platform.navy111p.workers.dev/img/astronaut.png" alt="망고 우주비행사" />
+    </div>
+
+    <!-- 1) 상단: 프로필 + 필터 토글 -->
+    <header class="topbar">
+      <div class="profile">
+        <div class="avatar">정</div>
+        <div class="who">
+          <div class="hi">안녕하세요 👋</div>
+          <div class="name">정우영</div>
+        </div>
+      </div>
+      <button class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
+        <span class="dot"></span> 필터
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </header>
+
+    <!-- 펼쳐지는 필터 패널 -->
+    <div class="filter-panel" id="filterPanel" role="region" aria-label="필터">
+      <div class="chips">
+        <button class="chip active">전체</button>
+        <button class="chip">최근 7일</button>
+        <button class="chip">Health</button>
+        <button class="chip">진행중 수업</button>
+        <button class="chip">즐겨찾기</button>
+      </div>
+    </div>
+
+    <!-- 2) 중앙 검색 -->
+    <main class="stage">
+      <h1>오늘은 무엇을<br><span>배워볼까요?</span></h1>
+      <div class="search">
+        <span class="ico">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        </span>
+        <input type="text" placeholder="강사, 수업, 교재를 검색하세요…" aria-label="검색" />
+      </div>
+      <p class="hint">예) “비즈니스 회화”, “초등 파닉스”, “원어민 1:1”</p>
+
+      <!-- 핵심 CTA: 현재 페이지의 주요 버튼 유지 -->
+      <div class="cta-group">
+        <div class="cta-row">
+          <button class="cta cta-primary">🎥 수업 입장</button>
+          <button class="cta cta-secondary">💳 결제하기</button>
+        </div>
+        <button class="cta cta-ghost" id="menuOpen">🏠 전체메뉴 열기</button>
+      </div>
+    </main>
+
+    <!-- 3) 통합 FAB -->
+    <div class="scrim" id="scrim"></div>
+    <div class="fab-wrap" id="fabWrap">
+      <div class="fab-actions">
+        <div class="fab-item"><span class="label">새로고침</span>
+          <button class="mini refresh" aria-label="새로고침">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          </button>
+        </div>
+        <div class="fab-item"><span class="label">AI 어시스턴트</span>
+          <button class="mini ai" aria-label="AI 어시스턴트">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M5 8l2 2M19 8l-2 2"/><rect x="6" y="10" width="12" height="9" rx="3"/><circle cx="10" cy="14.5" r="1"/><circle cx="14" cy="14.5" r="1"/></svg>
+          </button>
+        </div>
+        <div class="fab-item"><span class="label">카카오 상담</span>
+          <button class="mini kakao" aria-label="카카오 상담">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7 4 3 7.2 3 11.1c0 2.5 1.7 4.7 4.2 6L6.4 20l3.2-1.7c.8.1 1.6.2 2.4.2 5 0 9-3.2 9-7.4S17 4 12 4z"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="fab" id="fabMain" aria-label="메뉴 열기" aria-expanded="false">
+        <svg class="plus" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+
+  </div>
+
+<script>
+  // 1) 필터 토글
+  const ft = document.getElementById('filterToggle');
+  const fp = document.getElementById('filterPanel');
+  ft.addEventListener('click', () => {
+    const open = fp.classList.toggle('open');
+    ft.setAttribute('aria-expanded', open);
+  });
+
+  // 3) FAB 토글 (+ 바깥/ESC 닫기)
+  const wrap = document.getElementById('fabWrap');
+  const main = document.getElementById('fabMain');
+  const scrim = document.getElementById('scrim');
+  const setFab = (open) => {
+    wrap.classList.toggle('open', open);
+    scrim.classList.toggle('show', open);
+    main.setAttribute('aria-expanded', open);
+    main.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+  };
+  main.addEventListener('click', () => setFab(!wrap.classList.contains('open')));
+  scrim.addEventListener('click', () => setFab(false));
+  document.addEventListener('keydown', e => { if(e.key==='Escape') setFab(false); });
+</script>
+</body>
+</html>

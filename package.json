@@ -2,10 +2,12 @@
   "name": "mangoi-ai-avatar-cf",
   "version": "1.0.0",
   "private": true,
-  "description": "망고아이 AI 상담직원 — Cloudflare Worker(정적 자산 + API) + Gemini",
+  "type": "module",
+  "description": "망고아이 AI 상담직원 — Cloudflare Worker(정적 자산 + API) + Workers AI(Llama)·Typecast TTS·Whisper STT",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node test-harness.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.20.0"
