@@ -529,7 +529,8 @@ function audioResponse(body, source, voice) {
 /** 캐시 → Azure 순서로 음성을 얻는다. 화면 요청(/api/tts)과 미리 만들기(prewarm)가 함께 쓴다.
  *  돌려주는 값: { ok, body, source("r2-cache"|"azure"), voice, status, error } */
 async function getSpeech(env, ctx, rawText, mode) {
-  const text = normalizeTtsText(rawText);
+  // 글자(string)만 받는다 — 숫자·객체가 「[object Object]」 같은 글자로 Azure 에 가서 돈이 나가지 않게.
+  const text = typeof rawText === "string" ? normalizeTtsText(rawText) : "";
   if (!text) return { ok: false, status: 400, error: "empty" };
   if (text.length > TTS_MAX_CHARS) return { ok: false, status: 413, error: "too_long" };
   const lang = hasKorean(text) ? "ko" : "en";
@@ -658,6 +659,8 @@ async function handleSTT(request, env) {
 }
 
 // 테스트 하니스용 named export. Worker 런타임은 default(fetch)만 사용.
+// ⛔ 여기에는 «함수만» 넣으세요 — 숫자·문자열 상수를 export 하면 Cloudflare 런타임이
+//    시작부터 실패합니다(「not of type 'function or ExportedHandler'」, 2026-10-26 샌드박스에서 발견).
 export {
   isPointsQuestion,
   isRefundQuestion,
@@ -671,7 +674,6 @@ export {
   buildAzureSsml,
   azureVoice,
   ttsCacheKey,
-  TTS_MAX_CHARS,
   normalizeTtsText,
   usageReport,
   usageMonth,

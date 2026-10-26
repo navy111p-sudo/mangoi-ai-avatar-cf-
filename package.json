@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node test-harness.mjs"
+    "test": "node test-harness.mjs",
+    "stress": "node stress-test.mjs 1000 1 && node stress-test.mjs 1000 42 && node stress-test.mjs 1000 777"
   },
   "devDependencies": {
     "wrangler": "^4.20.0"

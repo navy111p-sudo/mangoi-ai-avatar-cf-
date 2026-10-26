@@ -15,7 +15,6 @@ import {
   buildAzureSsml,
   azureVoice,
   ttsCacheKey,
-  TTS_MAX_CHARS,
   normalizeTtsText,
   usageReport,
   usageMonth,
@@ -109,7 +108,6 @@ t("voice: 운영비서 전용 목소리", azureVoice({ AZURE_VOICE_KO_OPS: "ko-K
 t("voice: 운영비서 전용 없으면 학생 목소리", azureVoice({ AZURE_VOICE_KO: "ko-KR-JiMinNeural" }, "ko", "ops"), "ko-KR-JiMinNeural");
 t("voice: 학생은 운영비서 목소리 안 씀", azureVoice({ AZURE_VOICE_KO_OPS: "ko-KR-InJoonNeural" }, "ko"), "ko-KR-SunHiNeural");
 t("voice: 잘못된 환경변수 → 기본값", azureVoice({ AZURE_VOICE_KO: 'x"><bad' }, "ko"), "ko-KR-SunHiNeural");
-t("tts: 글자 상한 500", TTS_MAX_CHARS, 500);
 {
   const a = await ttsCacheKey("ko-KR-SunHiNeural", "안녕하세요");
   t("cache: 키 형식", /^tts\/[0-9a-f]{64}\.mp3$/.test(a), true);
@@ -146,7 +144,7 @@ t("ssml: 특수문자 이스케이프", buildAzureSsml('A<B & "C"', "en", "en-US
 {
   const list = prewarmTexts();
   t("prewarm: 중복 없음", new Set(list.map((x) => x.mode + x.text)).size, list.length);
-  t("prewarm: 모두 500자 이하", list.every((x) => x.text.length <= TTS_MAX_CHARS), true);
+  t("prewarm: 모두 500자 이하", list.every((x) => x.text.length <= 500), true);
   t("prewarm: 운영비서 인사 포함", list.some((x) => x.mode === "ops"), true);
 }
 
@@ -155,6 +153,26 @@ t("norm: 이모지 제거", normalizeTtsText("무엇을 도와 드릴까요? �
 t("norm: 공백 정리", normalizeTtsText("  네,   알겠어요!\n"), "네, 알겠어요!");
 t("norm: 마크다운 기호 제거", normalizeTtsText("**중요** 안내"), "중요 안내");
 t("norm: 📂 메뉴 안내", normalizeTtsText("📂 ‘학생관리’ 메뉴로 열어드릴까요?"), "‘학생관리’ 메뉴로 열어드릴까요?");
+
+// ===== Cloudflare 런타임 규칙: index.js 의 named export 는 함수만 =====
+{
+  const m = await import("./src/index.js");
+  const bad = Object.entries(m).filter(([k, v]) => k !== "default" && typeof v !== "function").map(([k]) => k);
+  t("runtime: named export 는 모두 함수(상수 export 시 배포 후 워커가 안 뜸)", bad, []);
+}
+
+// ===== /api/tts 입력 검사 =====
+{
+  const { default: worker } = await import("./src/index.js");
+  const call = (body) => worker.fetch(new Request("https://x/api/tts", { method: "POST", body }), {}, {});
+  t("tts: 숫자 text → 400", (await call('{"text":123}')).status, 400);
+  t("tts: 객체 text → 400", (await call('{"text":{"a":1}}')).status, 400);
+  t("tts: JSON 아님 → 400", (await call("not json")).status, 400);
+  t("tts: 이모지만 → 400", (await call('{"text":"😊😊"}')).status, 400);
+  t("tts: 501자 → 413", (await call(JSON.stringify({ text: "가".repeat(501) }))).status, 413);
+  t("tts: 500자 → 413 아님(키 없음 503)", (await call(JSON.stringify({ text: "가".repeat(500) }))).status, 503);
+  t("tts: 키 없음 → 503(브라우저 음성)", (await call('{"text":"안녕하세요"}')).status, 503);
+}
 
 // ===== Azure 사용량 / 약정 권장 =====
 t("usage: 월 (한국시간)", usageMonth(Date.UTC(2026, 9, 31, 16, 0)), "2026-11");
