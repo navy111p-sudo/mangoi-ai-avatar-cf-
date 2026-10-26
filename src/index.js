@@ -1,6 +1,6 @@
 // 망고아이 AI 아바타 — Cloudflare Worker (학생 상담사 + 관리자 운영비서 통합)
 // - 정적 파일(public/)은 자동 서빙. 이 Worker 는 /api/chat, /api/tts, /api/stt 처리.
-// - TTS: 학생=Azure Speech, 운영비서=Typecast (키가 없으면 서로 대체).
+// - TTS: mangoi.ai 와 같은 구조 — R2 캐시 → Azure Speech → 브라우저 음성 폴백.
 // - mode 분기: 기본(student)=고객 상담사 / "ops"=관리자 운영 비서.
 //     * student: public/student.html  (메인 홈페이지 우측 하단 'A.i 상담사')
 //     * ops:     public/index.html     (관리자 페이지 'AI 운영 비서')
@@ -383,27 +383,40 @@ async function handleChat(request, env) {
   }
 }
 
-// ===== 음성 합성 (TTS) — Azure Speech(학생) + Typecast(운영비서) =====
-// 학생 상담사(student): Azure Speech Neural — 100만 자당 $15 (Typecast 의 약 1/5 비용).
-// 운영비서(ops): 인사 영상과 같은 목소리를 위해 Typecast '재선'(Jaesun) 유지.
-// 쓰려는 쪽 키가 없으면 다른 쪽으로 자동 전환, 둘 다 없으면 503 → 프론트가 브라우저 음성으로 폴백.
+// ===== 음성 합성 (TTS) — mangoi.ai(/api/voice/tts)와 같은 구조 =====
+// ① R2 캐시를 먼저 본다 — 같은 문장은 한 번만 만들고, 그다음부터는 공짜로 즉시 재생.
+// ② 없으면 Azure Speech Neural 로 만든다 (100만 자당 $15).
+//      학생 상담사 = AZURE_VOICE_KO, 운영비서 = AZURE_VOICE_KO_OPS(없으면 학생과 같은 목소리),
+//      영어 문장 = AZURE_VOICE_EN.
+//      ⛔ Typecast 는 쓰지 않습니다 — 100만 자당 $70~90 로 Azure 의 5배 이상(2026-10 사장님 지시).
+// ③ 전부 안 되면 503/413 → 프론트가 브라우저 음성으로 폴백(소리가 끊기지 않게).
+// ⛔ 이 API 는 무인증이라 돈이 나가는 호출에는 반드시 상한을 둔다(글자 수 · 아는 목소리만).
 
-// ----- 공급자 선택 -----
-function pickTtsProvider(env, mode) {
-  const hasAzure = !!(env && env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION);
-  const hasTypecast = !!(env && env.TYPECAST_API_KEY);
-  const order = mode === "ops" ? ["typecast", "azure"] : ["azure", "typecast"];
-  for (const p of order) {
-    if (p === "azure" && hasAzure) return "azure";
-    if (p === "typecast" && hasTypecast) return "typecast";
-  }
-  return null;
+/** 한 번에 합성할 글자 수 상한. ⛔ 함부로 늘리지 마세요 — 글자 수가 곧 요금입니다.
+ *  상담 답변은 2~4문장(보통 100~300자)이라 넉넉합니다. 넘으면 브라우저 음성으로 갑니다. */
+const TTS_MAX_CHARS = 500;
+/** 캐시 세대 — 목소리·형식을 바꾸면 올려서 옛 캐시본을 버립니다. */
+const TTS_CACHE_VER = "v1";
+
+function hasAzureKey(env) {
+  return !!(env && env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION);
 }
 
 // ----- Azure Speech -----
 const AZURE_VOICE_KO = "ko-KR-SunHiNeural";  // 밝은 젊은 여성 한국어 목소리
 const AZURE_VOICE_EN = "en-US-JennyNeural";  // 친근한 여성 영어 목소리
+const AZURE_VOICE_RE = /^[a-z]{2}-[A-Z]{2}-[A-Za-z0-9]+Neural$/;  // 환경변수 오타·주입 방지
 
+function azureVoice(env, lang, mode = "student") {
+  const e = env || {};
+  const fallback = lang === "en" ? AZURE_VOICE_EN : AZURE_VOICE_KO;
+  const want = lang === "en"
+    ? e.AZURE_VOICE_EN
+    : (mode === "ops" && e.AZURE_VOICE_KO_OPS) || e.AZURE_VOICE_KO;
+  return want && AZURE_VOICE_RE.test(want) ? want : fallback;
+}
+
+// 🔴 SSML 은 XML — 사용자 글자가 그대로 들어가므로 반드시 이스케이프(안 하면 «&» 하나에 실패·주입 가능).
 function escapeXml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -413,19 +426,14 @@ function escapeXml(s) {
     .replace(/'/g, "&apos;");
 }
 
-function buildAzureSsml(text, lang, env) {
-  const ko = lang !== "en";
-  const voice = ko
-    ? (env && env.AZURE_VOICE_KO) || AZURE_VOICE_KO
-    : (env && env.AZURE_VOICE_EN) || AZURE_VOICE_EN;
-  const xmlLang = ko ? "ko-KR" : "en-US";
+function buildAzureSsml(text, lang, voice) {
+  const xmlLang = lang === "en" ? "en-US" : "ko-KR";
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${xmlLang}">` +
-    `<voice name="${escapeXml(voice)}">${escapeXml(text)}</voice></speak>`;
+    `<voice name="${voice}">${escapeXml(text)}</voice></speak>`;
 }
 
-async function synthAzure(text, env) {
-  const lang = hasKorean(text) ? "ko" : "en";
-  const region = String(env.AZURE_SPEECH_REGION).trim();
+function synthAzure(text, lang, voice, env) {
+  const region = String(env.AZURE_SPEECH_REGION).trim().toLowerCase();
   return fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: "POST",
     headers: {
@@ -434,92 +442,77 @@ async function synthAzure(text, env) {
       "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
       "User-Agent": "mangoi-ai-avatar-cf",
     },
-    body: buildAzureSsml(text, lang, env),
+    body: buildAzureSsml(text, lang, voice),
   });
 }
 
-// ----- Typecast -----
-// 운영비서(ops): 인사 영상과 동일한 '재선'(Jaesun) 고정 voice_id.
-// 학생 상담사(student, Azure 키 없을 때만): Typecast 의 young_adult female 보이스를 동적으로 선택.
-const JAESUN_VOICE_ID = "tc_684a7a1446e2a628b5b07230"; // '재선'(Jaesun) ssfm-v30
-const VOICE_MODEL = "ssfm-v30";
-let cachedStudentVoiceId = null; // 동일 isolate 재사용(학생 동적 보이스)
-
-async function pickVoiceId(env, mode) {
-  if (mode === "ops") {
-    return (env && env.TYPECAST_VOICE_ID) || JAESUN_VOICE_ID;
-  }
-  if (env && env.TYPECAST_VOICE_ID_STUDENT) return env.TYPECAST_VOICE_ID_STUDENT;
-  if (cachedStudentVoiceId) return cachedStudentVoiceId;
-  try {
-    const r = await fetch(
-      "https://api.typecast.ai/v2/voices?model=ssfm-v30&gender=female&age=young_adult",
-      { headers: { "X-API-KEY": env.TYPECAST_API_KEY } }
-    );
-    if (r.ok) {
-      const data = await r.json();
-      const list = Array.isArray(data) ? data : (data && (data.voices || data.data || data.result));
-      if (Array.isArray(list)) {
-        const v = list.find((x) => x && x.voice_id);
-        if (v) { cachedStudentVoiceId = v.voice_id; return cachedStudentVoiceId; }
-      }
-    }
-  } catch (_) {}
-  return null;
+// ----- R2 캐시 (mangoi.ai 와 같은 방식: tts/<sha256>.mp3 + customMetadata.eng) -----
+// ⚠️ 키에는 «실제로 쓸 목소리» 를 넣는다 — 안 넣으면 목소리를 바꿔도 옛 소리가 계속 나온다.
+async function ttsCacheKey(voice, text) {
+  const enc = new TextEncoder().encode([TTS_CACHE_VER, voice, text].join("|"));
+  const dig = await crypto.subtle.digest("SHA-256", enc);
+  return "tts/" + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, "0")).join("") + ".mp3";
 }
 
-async function synthTypecast(text, env, mode) {
-  const voiceId = await pickVoiceId(env, mode);
-  if (!voiceId) return null;
-  return fetch("https://api.typecast.ai/v1/text-to-speech", {
-    method: "POST",
-    headers: { "X-API-KEY": env.TYPECAST_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      voice_id: voiceId,
-      text: text,
-      model: VOICE_MODEL,
-      language: "kor",
-      prompt: { emotion_type: "preset", emotion_preset: "happy", emotion_intensity: 1 },
-      output: { volume: 100, audio_pitch: 0, audio_tempo: 1, audio_format: "mp3" },
-    }),
+function audioResponse(body, source, voice) {
+  return new Response(body, {
+    headers: {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "no-store",
+      "X-TTS-Provider": source,
+      "X-TTS-Voice": voice,
+      ...CORS,
+    },
   });
 }
 
 // ----- /api/tts -----
-async function handleTTS(request, env) {
+async function handleTTS(request, env, ctx) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (request.method !== "POST") return json({ error: "POST 메서드만 허용됩니다." }, 405);
 
   let body = {};
   try { body = await request.json(); } catch (_) {}
-  const text = ((body && body.text) || "").toString().trim().slice(0, 2000);
+  const text = ((body && body.text) || "").toString().trim();
   const mode = (body && body.mode === "ops") ? "ops" : "student";
   if (!text) return json({ error: "empty" }, 400);
+  if (text.length > TTS_MAX_CHARS) return json({ error: "too_long", max: TTS_MAX_CHARS }, 413);
+  const lang = hasKorean(text) ? "ko" : "en";
 
-  const provider = pickTtsProvider(env, mode);
-  if (!provider) return json({ error: "no_tts_key" }, 503); // 프론트가 브라우저 음성으로 폴백
+  const voice = azureVoice(env, lang, mode);
 
+  // ① 캐시 적중 → Azure 를 부르지 않으므로 요금 0 (키가 없어도 만들어 둔 소리는 난다)
+  const r2 = env.TTS_CACHE;
+  const key = r2 ? await ttsCacheKey(voice, text) : "";
+  if (r2) {
+    try {
+      const hit = await r2.get(key);
+      if (hit) return audioResponse(hit.body, "r2-cache", voice);
+    } catch (_) { /* 캐시 장애는 무시하고 새로 만든다 */ }
+  }
+
+  if (!hasAzureKey(env)) return json({ error: "no_tts_key" }, 503); // 프론트가 브라우저 음성으로 폴백
+
+  // ② Azure 호출
   let r;
   try {
-    r = provider === "azure" ? await synthAzure(text, env) : await synthTypecast(text, env, mode);
+    r = await synthAzure(text, lang, voice, env);
   } catch (e) {
-    return json({ error: "tts_fetch_failed", provider, detail: String(e) }, 502);
+    return json({ error: "tts_fetch_failed", detail: String(e) }, 502);
   }
-  if (!r) return json({ error: "no_voice", provider }, 503);
-
   if (!r.ok) {
     const det = await r.text();
-    return json({ error: "tts_failed", provider, status: r.status, detail: det.slice(0, 400) }, 502);
+    return json({ error: "tts_failed", status: r.status, detail: det.slice(0, 400) }, 502);
   }
+  const bytes = await r.arrayBuffer();
+  // 빈 응답·에러 본문을 «소리» 로 내보내거나 캐시에 넣지 않는다(mangoi.ai 2026-09 사고와 같은 자리).
+  if (!bytes || bytes.byteLength < 800) return json({ error: "tts_empty" }, 502);
 
-  return new Response(r.body, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Cache-Control": "no-store",
-      "X-TTS-Provider": provider,
-      ...CORS,
-    },
-  });
+  if (r2) {
+    const put = r2.put(key, bytes, { httpMetadata: { contentType: "audio/mpeg" } }).catch(() => {});
+    if (ctx && ctx.waitUntil) ctx.waitUntil(put); else await put;
+  }
+  return audioResponse(bytes, "azure", voice);
 }
 
 // ===== 음성 인식 (STT) — Cloudflare Workers AI Whisper =====
@@ -571,15 +564,18 @@ export {
   extractGo,
   stripLeakedCodes,
   hasKorean,
-  pickTtsProvider,
+  hasAzureKey,
   buildAzureSsml,
+  azureVoice,
+  ttsCacheKey,
+  TTS_MAX_CHARS,
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/chat") return handleChat(request, env);
-    if (url.pathname === "/api/tts")  return handleTTS(request, env);
+    if (url.pathname === "/api/tts")  return handleTTS(request, env, ctx);
     if (url.pathname === "/api/stt")  return handleSTT(request, env);
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Not found", { status: 404 });

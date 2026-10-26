@@ -11,8 +11,11 @@ import {
   extractGo,
   stripLeakedCodes,
   hasKorean,
-  pickTtsProvider,
+  hasAzureKey,
   buildAzureSsml,
+  azureVoice,
+  ttsCacheKey,
+  TTS_MAX_CHARS,
 } from "./src/index.js";
 
 let pass = 0, fail = 0;
@@ -89,24 +92,28 @@ t("student go: 학습 현황 → mypage(전체메뉴 아님)", detectGo("자녀 
 t("strip: 괄호 코드 제거", /lesson-enter/.test(stripLeakedCodes("수업 입장은 (lesson-enter) 하세요")), false);
 t("strip: 일반 문장 보존", stripLeakedCodes("안녕하세요 반갑습니다"), "안녕하세요 반갑습니다");
 
-// ===== pickTtsProvider (TTS 공급자 선택) =====
+// ===== Azure 음성 (TTS) =====
 {
   const AZ = { AZURE_SPEECH_KEY: "k", AZURE_SPEECH_REGION: "koreacentral" };
-  const TC = { TYPECAST_API_KEY: "t" };
-  const BOTH = { ...AZ, ...TC };
-  t("tts: 학생 + 둘 다 → azure", pickTtsProvider(BOTH, "student"), "azure");
-  t("tts: 운영비서 + 둘 다 → typecast", pickTtsProvider(BOTH, "ops"), "typecast");
-  t("tts: 학생 + Typecast만 → typecast", pickTtsProvider(TC, "student"), "typecast");
-  t("tts: 운영비서 + Azure만 → azure", pickTtsProvider(AZ, "ops"), "azure");
-  t("tts: 리전 없음 → Azure 미사용", pickTtsProvider({ AZURE_SPEECH_KEY: "k" }, "student"), null);
-  t("tts: 키 없음 → null", pickTtsProvider({}, "student"), null);
+  t("tts: 키+리전 → Azure 사용", hasAzureKey(AZ), true);
+  t("tts: 리전 없음 → 미사용", hasAzureKey({ AZURE_SPEECH_KEY: "k" }), false);
+  t("tts: 키 없음 → 미사용", hasAzureKey({}), false);
 }
-
-// ===== buildAzureSsml (Azure 음성 SSML) =====
-t("ssml: 한국어 기본 목소리", /ko-KR-SunHiNeural/.test(buildAzureSsml("안녕하세요", "ko", {})), true);
-t("ssml: 영어 기본 목소리", /en-US-JennyNeural/.test(buildAzureSsml("Hello", "en", {})), true);
-t("ssml: 목소리 환경변수 우선", /ko-KR-InJoonNeural/.test(buildAzureSsml("안녕", "ko", { AZURE_VOICE_KO: "ko-KR-InJoonNeural" })), true);
-t("ssml: 특수문자 이스케이프", buildAzureSsml("A<B & \"C\"", "en", {}).includes("A&lt;B &amp; &quot;C&quot;"), true);
+t("voice: 학생 한국어 기본", azureVoice({}, "ko"), "ko-KR-SunHiNeural");
+t("voice: 영어 기본", azureVoice({}, "en"), "en-US-JennyNeural");
+t("voice: 운영비서 전용 목소리", azureVoice({ AZURE_VOICE_KO_OPS: "ko-KR-InJoonNeural" }, "ko", "ops"), "ko-KR-InJoonNeural");
+t("voice: 운영비서 전용 없으면 학생 목소리", azureVoice({ AZURE_VOICE_KO: "ko-KR-JiMinNeural" }, "ko", "ops"), "ko-KR-JiMinNeural");
+t("voice: 학생은 운영비서 목소리 안 씀", azureVoice({ AZURE_VOICE_KO_OPS: "ko-KR-InJoonNeural" }, "ko"), "ko-KR-SunHiNeural");
+t("voice: 잘못된 환경변수 → 기본값", azureVoice({ AZURE_VOICE_KO: 'x"><bad' }, "ko"), "ko-KR-SunHiNeural");
+t("tts: 글자 상한 500", TTS_MAX_CHARS, 500);
+{
+  const a = await ttsCacheKey("ko-KR-SunHiNeural", "안녕하세요");
+  t("cache: 키 형식", /^tts\/[0-9a-f]{64}\.mp3$/.test(a), true);
+  t("cache: 같은 입력 → 같은 키", a, await ttsCacheKey("ko-KR-SunHiNeural", "안녕하세요"));
+  t("cache: 목소리 다르면 다른 키", a === await ttsCacheKey("ko-KR-InJoonNeural", "안녕하세요"), false);
+}
+t("ssml: 목소리·언어", buildAzureSsml("Hello", "en", "en-US-JennyNeural").includes('xml:lang="en-US"><voice name="en-US-JennyNeural">'), true);
+t("ssml: 특수문자 이스케이프", buildAzureSsml('A<B & "C"', "en", "en-US-JennyNeural").includes("A&lt;B &amp; &quot;C&quot;"), true);
 
 // ===== 결과 출력 =====
 console.log("\n=== 망고아이 운영비서 test-harness ===");
