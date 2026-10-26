@@ -32,9 +32,10 @@ if errorlevel 1 (
 )
 echo.
 
-echo NOTE: This worker uses Cloudflare Workers AI (no external key needed).
-echo (Optional) For Typecast voice, set the secret once:
-echo     npx wrangler secret put TYPECAST_API_KEY --config "%~dp0wrangler.toml"
+echo NOTE: Chat/STT use Cloudflare Workers AI (no external key needed).
+echo Voice (TTS) uses Azure Speech. If not done yet:
+echo     1) 12_r2_cache.bat   (voice cache bucket, once)
+echo     2) 11_azure_key.bat  (Azure key + region, once)
 
 echo.
 echo ====================================================

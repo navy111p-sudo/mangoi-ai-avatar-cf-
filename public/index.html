@@ -152,7 +152,7 @@
   }
   function startMouthPlain(){ if(speakingDot) speakingDot.classList.remove("hidden"); try{ video.muted=true; video.play(); }catch(e){} }
 
-  // === 음성: 1순위 Typecast(서버), 실패 시 브라우저 음성 ===
+  // === 음성: 1순위 Azure(서버, R2 캐시), 실패 시 브라우저 음성 ===
   var audioEl = new Audio();
   var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{if(actx&&actx.state==="suspended")actx.resume();}catch(e){}try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}}
   ["touchstart","pointerdown","mousedown","click","keydown"].forEach(function(ev){document.addEventListener(ev,__unlock,{passive:true});});
@@ -229,7 +229,7 @@
     lastAnswer=text;
     stopListening();
     stopSpeaking();
-    if(!/[가-힣]/.test(text)){ speakBrowser(text); return; }
+    // 영어 답변도 서버(Azure 영어 목소리)로 — 실패하면 아래 catch 에서 브라우저 음성으로 폴백
     var mySeq=speakSeq;
     var ac=("AbortController" in window)?new AbortController():null;
     ttsAbort=ac;
@@ -406,7 +406,7 @@
     }catch(e){ greetFallback(); }
   }
   function greetFallback(){
-    // 자동재생(소리) 차단된 환경 → 인사말을 Typecast/브라우저 음성으로
+    // 자동재생(소리) 차단된 환경 → 인사말을 Azure/브라우저 음성으로
     greeting=false;
     try{ video.muted=true; video.loop=true; }catch(e){}
     var t=I18N[uiLang]||I18N.ko;

@@ -134,7 +134,7 @@
   // 브라우저 내장 음성(영어/폴백)용 입모양: 오디오 분석 없이 영상 루프 재생
   function startMouthPlain(){ speakingDot.classList.remove("hidden"); try{ video.play(); }catch(e){} }
 
-  // === 음성: 1순위 타입캐스트(서버), 실패 시 브라우저 음성 ===
+  // === 음성: 1순위 Azure(서버, R2 캐시), 실패 시 브라우저 음성 ===
   var audioEl = new Audio();
   // 모바일(안드로이드 Chrome) 자동재생 정책 우회: 첫 사용자 제스처에서 오디오/영상 잠금 해제
   var __mu=false;function __unlock(){if(__mu)return;__mu=true;try{if(actx&&actx.state==="suspended")actx.resume();}catch(e){}try{var p=audioEl.play();if(p&&p.then)p.then(function(){audioEl.pause();audioEl.currentTime=0;}).catch(function(){});}catch(e){}try{var pv=video.play();if(pv&&pv.then)pv.then(function(){video.pause();video.currentTime=0;}).catch(function(){});}catch(e){}}
@@ -211,7 +211,7 @@
     lastAnswer=text;
     stopListening();                            // 답변 재생 시작 → 듣기 중이면 정지(에코 방지)
     stopSpeaking();                             // 이전 음성/입모양 정지 + 토큰 증가
-    if(!/[가-힣]/.test(text)){ speakBrowser(text); return; }   // 답변에 한글 없음 → 영어로 간주: 브라우저 음성
+    // 영어 답변도 서버(Azure 영어 목소리)로 — 실패하면 아래 catch 에서 브라우저 음성으로 폴백
     var mySeq=speakSeq;                         // 이 호출의 시퀀스
     var ac=("AbortController" in window)?new AbortController():null;
     ttsAbort=ac;

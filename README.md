@@ -4,16 +4,24 @@
 망고아이 웹/모바일 웹에 **iframe 위젯**으로 띄우는 패키지입니다.
 
 - 답변 생성(`/api/chat`): **Cloudflare Workers AI** (Llama 3.3) — 외부 API 키 불필요.
-- 음성 합성(`/api/tts`): **Typecast** — 키가 있으면 사용, 없으면 브라우저 한국어 TTS로 자동 폴백.
+- 음성 합성(`/api/tts`): **Azure Speech** 만 사용 (100만 자당 $15) — mangoi.ai 와 같은 구조
+  - ① **R2 캐시** 먼저 확인 → 같은 문장은 한 번만 만들고 이후 무료 재생
+  - ② 없으면 Azure 로 생성 (학생·운영비서·영어 목소리 따로 지정 가능)
+  - ③ 실패·키 없음·500자 초과 → 브라우저 음성으로 자동 폴백
+  - ⛔ Typecast 는 쓰지 않습니다 (100만 자당 $70~90, Azure 의 5배 이상)
+- 자주 묻는 질문(`src/faq.js`): 수업 입장·연기, 결제·수강료, 성적표, 마이페이지, 교재, 레벨테스트, 비밀번호는
+  **AI 없이 정해진 답변** → 글자가 늘 같아 음성도 캐시에서 무료 재생. 애매한 질문(문제 상황·두 가지 주제·40자 초과)은 AI 로.
+- `POST /api/tts/prewarm`: 정해진 문장 음성을 미리 만들어 둠(약 2,800자 ≈ $0.04, 한 번) → `13_prewarm.bat`
+- `GET /api/tts/usage`: 이번 달 Azure 사용 글자 수·예상 요금·**약정 요금제 권장 여부**(월 6,400만 자 이상)
 - 음성 인식(`/api/stt`): **Workers AI Whisper** — 외부 키 불필요.
 
-**핵심 안전 원칙**: 외부 키(Typecast 등)는 **Cloudflare 환경변수(Secret)**에만 넣습니다. 코드·깃허브·브라우저
+**핵심 안전 원칙**: 외부 키(Azure)는 **Cloudflare 환경변수(Secret)**에만 넣습니다. 코드·깃허브·브라우저
 어디에도 키를 적지 않으므로 공개 배포해도 안전합니다.
 
 ## 폴더 구성
 ```
 mangoi-develop2/
-├─ src/index.js            # 백엔드 Worker: /api/chat(Workers AI), /api/tts(Typecast), /api/stt(Whisper)
+├─ src/index.js            # 백엔드 Worker: /api/chat(Workers AI), /api/tts(Azure Speech + R2 캐시), /api/stt(Whisper)
 ├─ public/
 │  ├─ index.html           # 아바타 + 음성 + 채팅 화면 (반응형, iframe 안에서 꽉 참)
 │  ├─ ops-greeting.mp4      # 인사 영상(말하는 아바타)
@@ -26,15 +34,24 @@ mangoi-develop2/
 
 ---
 
-## 1) (선택) Typecast 음성 키
-답변 생성·음성 인식은 키 없이 동작합니다. 더 자연스러운 한국어 음성을 원하면 Typecast 키를 준비하세요.
-키가 없으면 브라우저 내장 TTS로 자동 폴백되므로 필수는 아닙니다.
+## 1) 음성 캐시 버킷 (처음 한 번)
+`12_r2_cache.bat` 더블클릭 (또는 `npx wrangler r2 bucket create mangoi-avatar-tts-cache`).
+⚠️ 버킷이 없으면 배포가 실패합니다.
+
+## 1-1) Azure Speech 키
+1. Azure 포털 → Speech 리소스 → **Keys and Endpoint** 에서 **KEY 1** 과 **Location/Region**(예: `koreacentral`) 확인
+2. `11_azure_key.bat` 더블클릭 → 키와 리전 입력 → `3_재배포.bat`
+   (또는 `npx wrangler secret put AZURE_SPEECH_KEY` / `npx wrangler secret put AZURE_SPEECH_REGION`)
+3. (선택) 목소리 변경: `AZURE_VOICE_KO`(학생, 기본 `ko-KR-SunHiNeural`), `AZURE_VOICE_KO_OPS`(운영비서, 없으면 학생과 같음), `AZURE_VOICE_EN`(기본 `en-US-JennyNeural`)
+4. 확인: 응답 헤더 `X-TTS-Provider` 가 `azure`(새로 만듦) 또는 `r2-cache`(캐시 재생)
+5. 배포 후 `13_prewarm.bat` 한 번 실행 → 자주 쓰는 문장 음성 미리 만들기
 
 ## 2) (선택) 로컬 테스트
 ```bash
 npm install
-# (선택) Typecast 키를 쓸 경우에만: 프로젝트 루트에 .dev.vars 파일을 만들고 아래 한 줄 추가
-#   TYPECAST_API_KEY=발급받은_키
+# (선택) 로컬에서 음성까지 테스트하려면 프로젝트 루트에 .dev.vars 파일을 만들고 아래 추가
+#   AZURE_SPEECH_KEY=발급받은_키
+#   AZURE_SPEECH_REGION=koreacentral
 npm run dev                        # http://localhost:8787
 ```
 
@@ -62,14 +79,16 @@ git push -u origin main
    - **Project name**: `mangoi-ai-avatar-cf` (wrangler.toml 의 name 과 동일하게)
    - **Build command**: 비움
    - **Deploy command**: `npx wrangler deploy` (기본값 그대로)
-4. (선택) **Settings → Variables and Secrets** 에 `TYPECAST_API_KEY` 를 Secret 으로 추가하면 Typecast 음성이 켜집니다.
+4. **Settings → Variables and Secrets** 에 `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` 을 Secret 으로 추가합니다.
 5. **Deploy** → 빌드 후 `https://OOO.workers.dev` 공개 주소 발급.
 
 **방법 B — CLI**
 ```bash
 npm install
 npx wrangler deploy                         # 첫 배포
-npx wrangler secret put TYPECAST_API_KEY     # (선택) Typecast 키 입력 후 재배포
+npx wrangler r2 bucket create mangoi-avatar-tts-cache   # 음성 캐시 버킷(처음 한 번)
+npx wrangler secret put AZURE_SPEECH_KEY
+npx wrangler secret put AZURE_SPEECH_REGION
 ```
 
 자동 배포: 방법 A로 연결하면 이후 `git push` 할 때마다 **Cloudflare 가 자동으로 재배포**합니다.
@@ -82,8 +101,8 @@ npx wrangler secret put TYPECAST_API_KEY     # (선택) Typecast 키 입력 후 
 - 모바일 웹에서는 화면 크기에 맞춰 자동으로 커집니다.
 
 ## 주의사항
-- **키 안전**: 외부 키(Typecast)는 Cloudflare 환경변수에만 존재. 브라우저로 내려가지 않습니다.
-- **음성**: Typecast 키가 있으면 통일된 한국어 음성, 없으면 방문자 브라우저의 한국어 TTS로 읽어줍니다. 영어 답변은 브라우저 TTS 사용.
+- **키 안전**: 외부 키(Azure)는 Cloudflare 환경변수에만 존재. 브라우저로 내려가지 않습니다.
+- **음성**: Azure 음성(한국어·영어). 키가 없거나 실패하면 방문자 브라우저 음성으로 읽어줍니다.
 - **HTTPS**: Workers 주소는 기본 HTTPS. 임베드하는 사이트도 HTTPS 여야 합니다.
 - **콜드스타트 없음**: Cloudflare는 잠들지 않아 첫 응답도 빠릅니다.
-- **비용**: Workers AI + Cloudflare 무료 플랜 한도 내에서 추가 비용 없음(Typecast는 별도 과금 정책).
+- **비용**: Workers AI는 하루 1만 뉴런 무료, 초과분 1,000뉴런당 $0.011. 음성은 Azure $15/100만 자(R2 캐시 재생분은 0원), R2는 월 10GB 무료.

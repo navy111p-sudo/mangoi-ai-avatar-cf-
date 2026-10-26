@@ -51,7 +51,7 @@ echo.
 echo ====================================================
 echo  DONE! Now connect this repo on Cloudflare Workers ^& Pages.
 echo   - Import a repository: mangoi-ai-avatar-cf-  (deploy command: npx wrangler deploy)
-echo   - (Optional) Add Secret TYPECAST_API_KEY for Typecast voice
+echo   - Add Secrets AZURE_SPEECH_KEY / AZURE_SPEECH_REGION for Azure voice
 echo ====================================================
 echo.
 pause

@@ -11,7 +11,15 @@ import {
   extractGo,
   stripLeakedCodes,
   hasKorean,
+  hasAzureKey,
+  buildAzureSsml,
+  azureVoice,
+  ttsCacheKey,
+  normalizeTtsText,
+  usageReport,
+  usageMonth,
 } from "./src/index.js";
+import { matchFaq, prewarmTexts } from "./src/faq.js";
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -86,6 +94,91 @@ t("student go: 학습 현황 → mypage(전체메뉴 아님)", detectGo("자녀 
 // ===== stripLeakedCodes (본문에 흘린 코드 토큰 정리) =====
 t("strip: 괄호 코드 제거", /lesson-enter/.test(stripLeakedCodes("수업 입장은 (lesson-enter) 하세요")), false);
 t("strip: 일반 문장 보존", stripLeakedCodes("안녕하세요 반갑습니다"), "안녕하세요 반갑습니다");
+
+// ===== Azure 음성 (TTS) =====
+{
+  const AZ = { AZURE_SPEECH_KEY: "k", AZURE_SPEECH_REGION: "koreacentral" };
+  t("tts: 키+리전 → Azure 사용", hasAzureKey(AZ), true);
+  t("tts: 리전 없음 → 미사용", hasAzureKey({ AZURE_SPEECH_KEY: "k" }), false);
+  t("tts: 키 없음 → 미사용", hasAzureKey({}), false);
+}
+t("voice: 학생 한국어 기본", azureVoice({}, "ko"), "ko-KR-SunHiNeural");
+t("voice: 영어 기본", azureVoice({}, "en"), "en-US-JennyNeural");
+t("voice: 운영비서 전용 목소리", azureVoice({ AZURE_VOICE_KO_OPS: "ko-KR-InJoonNeural" }, "ko", "ops"), "ko-KR-InJoonNeural");
+t("voice: 운영비서 전용 없으면 학생 목소리", azureVoice({ AZURE_VOICE_KO: "ko-KR-JiMinNeural" }, "ko", "ops"), "ko-KR-JiMinNeural");
+t("voice: 학생은 운영비서 목소리 안 씀", azureVoice({ AZURE_VOICE_KO_OPS: "ko-KR-InJoonNeural" }, "ko"), "ko-KR-SunHiNeural");
+t("voice: 잘못된 환경변수 → 기본값", azureVoice({ AZURE_VOICE_KO: 'x"><bad' }, "ko"), "ko-KR-SunHiNeural");
+{
+  const a = await ttsCacheKey("ko-KR-SunHiNeural", "안녕하세요");
+  t("cache: 키 형식", /^tts\/[0-9a-f]{64}\.mp3$/.test(a), true);
+  t("cache: 같은 입력 → 같은 키", a, await ttsCacheKey("ko-KR-SunHiNeural", "안녕하세요"));
+  t("cache: 목소리 다르면 다른 키", a === await ttsCacheKey("ko-KR-InJoonNeural", "안녕하세요"), false);
+}
+t("ssml: 목소리·언어", buildAzureSsml("Hello", "en", "en-US-JennyNeural").includes('xml:lang="en-US"><voice name="en-US-JennyNeural">'), true);
+t("ssml: 특수문자 이스케이프", buildAzureSsml('A<B & "C"', "en", "en-US-JennyNeural").includes("A&lt;B &amp; &quot;C&quot;"), true);
+
+// ===== FAQ 정해진 답변 (src/faq.js) =====
+{
+  const id = (q) => { const r = matchFaq(q, /[가-힣]/.test(q) ? "ko" : "en"); return r ? r.id : null; };
+  t("faq: 수업 입장", id("수업 입장 어떻게 해요?"), "lesson-enter");
+  t("faq: 수업 연기", id("수업 연기하고 싶어요"), "lesson-change");
+  t("faq: 결제", id("결제는 어디서 하나요?"), "payment");
+  t("faq: 수강료", id("수강료 얼마예요?"), "price");
+  t("faq: 성적표", id("성적표 보고 싶어요"), "report");
+  t("faq: 비밀번호", id("비밀번호 바꾸고 싶어요"), "account");
+  t("faq: 영어 입장", id("How do I enter class?"), "lesson-enter");
+  t("faq: 영어 가격", id("How much is the tuition?"), "price");
+  // 애매하면 AI 로
+  t("faq: '얼마나 걸려요'는 가격 아님", id("얼마나 걸려요?"), null);
+  t("faq: '수업방법'은 입장 아님", id("수업방법이 궁금해요"), null);
+  t("faq: 결제 취소 → AI", id("결제 취소하고 싶어요"), null);
+  t("faq: 문제 상황 → AI", id("결제가 안돼요"), null);
+  t("faq: 교재비 → AI", id("교재비 얼마예요?"), null);
+  t("faq: 주제 두 개 → AI", id("수업 연기하고 결제도 하고 싶어요"), null);
+  t("faq: feedback 은 fee 아님", id("I want feedback"), null);
+  t("faq: 긴 질문 → AI", id("수업 입장하려고 하는데 우리 아이가 처음이라 어떻게 해야 할지 잘 모르겠어요 알려주세요"), null);
+  const r = matchFaq("성적표", "ko");
+  t("faq: go 코드", r.go, "report");
+  t("faq: 답변에 태그 없음", /\[\[/.test(r.answer), false);
+}
+{
+  const list = prewarmTexts();
+  t("prewarm: 중복 없음", new Set(list.map((x) => x.mode + x.text)).size, list.length);
+  t("prewarm: 모두 500자 이하", list.every((x) => x.text.length <= 500), true);
+  t("prewarm: 운영비서 인사 포함", list.some((x) => x.mode === "ops"), true);
+}
+
+// ===== 읽을 글자 정리 (캐시 키 통일) =====
+t("norm: 이모지 제거", normalizeTtsText("무엇을 도와 드릴까요? 😊"), "무엇을 도와 드릴까요?");
+t("norm: 공백 정리", normalizeTtsText("  네,   알겠어요!\n"), "네, 알겠어요!");
+t("norm: 마크다운 기호 제거", normalizeTtsText("**중요** 안내"), "중요 안내");
+t("norm: 📂 메뉴 안내", normalizeTtsText("📂 ‘학생관리’ 메뉴로 열어드릴까요?"), "‘학생관리’ 메뉴로 열어드릴까요?");
+
+// ===== Cloudflare 런타임 규칙: index.js 의 named export 는 함수만 =====
+{
+  const m = await import("./src/index.js");
+  const bad = Object.entries(m).filter(([k, v]) => k !== "default" && typeof v !== "function").map(([k]) => k);
+  t("runtime: named export 는 모두 함수(상수 export 시 배포 후 워커가 안 뜸)", bad, []);
+}
+
+// ===== /api/tts 입력 검사 =====
+{
+  const { default: worker } = await import("./src/index.js");
+  const call = (body) => worker.fetch(new Request("https://x/api/tts", { method: "POST", body }), {}, {});
+  t("tts: 숫자 text → 400", (await call('{"text":123}')).status, 400);
+  t("tts: 객체 text → 400", (await call('{"text":{"a":1}}')).status, 400);
+  t("tts: JSON 아님 → 400", (await call("not json")).status, 400);
+  t("tts: 이모지만 → 400", (await call('{"text":"😊😊"}')).status, 400);
+  t("tts: 501자 → 413", (await call(JSON.stringify({ text: "가".repeat(501) }))).status, 413);
+  t("tts: 500자 → 413 아님(키 없음 503)", (await call(JSON.stringify({ text: "가".repeat(500) }))).status, 503);
+  t("tts: 키 없음 → 503(브라우저 음성)", (await call('{"text":"안녕하세요"}')).status, 503);
+}
+
+// ===== Azure 사용량 / 약정 권장 =====
+t("usage: 월 (한국시간)", usageMonth(Date.UTC(2026, 9, 31, 16, 0)), "2026-11");
+t("usage: 적을 때 권장 안 함", usageReport("2026-10", { chars: 1000000, calls: 10 }).commit_recommended, false);
+t("usage: 6,400만 자 이상 권장", usageReport("2026-10", { chars: 64000000, calls: 10 }).commit_recommended, true);
+t("usage: 종량제 금액", usageReport("2026-10", { chars: 2000000, calls: 1 }).payg_usd, 30);
 
 // ===== 결과 출력 =====
 console.log("\n=== 망고아이 운영비서 test-harness ===");
