@@ -9,6 +9,10 @@
   - ② 없으면 Azure 로 생성 (학생·운영비서·영어 목소리 따로 지정 가능)
   - ③ 실패·키 없음·500자 초과 → 브라우저 음성으로 자동 폴백
   - ⛔ Typecast 는 쓰지 않습니다 (100만 자당 $70~90, Azure 의 5배 이상)
+- 자주 묻는 질문(`src/faq.js`): 수업 입장·연기, 결제·수강료, 성적표, 마이페이지, 교재, 레벨테스트, 비밀번호는
+  **AI 없이 정해진 답변** → 글자가 늘 같아 음성도 캐시에서 무료 재생. 애매한 질문(문제 상황·두 가지 주제·40자 초과)은 AI 로.
+- `POST /api/tts/prewarm`: 정해진 문장 음성을 미리 만들어 둠(약 2,800자 ≈ $0.04, 한 번) → `13_prewarm.bat`
+- `GET /api/tts/usage`: 이번 달 Azure 사용 글자 수·예상 요금·**약정 요금제 권장 여부**(월 6,400만 자 이상)
 - 음성 인식(`/api/stt`): **Workers AI Whisper** — 외부 키 불필요.
 
 **핵심 안전 원칙**: 외부 키(Azure)는 **Cloudflare 환경변수(Secret)**에만 넣습니다. 코드·깃허브·브라우저
@@ -40,6 +44,7 @@ mangoi-develop2/
    (또는 `npx wrangler secret put AZURE_SPEECH_KEY` / `npx wrangler secret put AZURE_SPEECH_REGION`)
 3. (선택) 목소리 변경: `AZURE_VOICE_KO`(학생, 기본 `ko-KR-SunHiNeural`), `AZURE_VOICE_KO_OPS`(운영비서, 없으면 학생과 같음), `AZURE_VOICE_EN`(기본 `en-US-JennyNeural`)
 4. 확인: 응답 헤더 `X-TTS-Provider` 가 `azure`(새로 만듦) 또는 `r2-cache`(캐시 재생)
+5. 배포 후 `13_prewarm.bat` 한 번 실행 → 자주 쓰는 문장 음성 미리 만들기
 
 ## 2) (선택) 로컬 테스트
 ```bash

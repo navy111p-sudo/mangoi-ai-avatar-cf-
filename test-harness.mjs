@@ -16,7 +16,11 @@ import {
   azureVoice,
   ttsCacheKey,
   TTS_MAX_CHARS,
+  normalizeTtsText,
+  usageReport,
+  usageMonth,
 } from "./src/index.js";
+import { matchFaq, prewarmTexts } from "./src/faq.js";
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -114,6 +118,49 @@ t("tts: 글자 상한 500", TTS_MAX_CHARS, 500);
 }
 t("ssml: 목소리·언어", buildAzureSsml("Hello", "en", "en-US-JennyNeural").includes('xml:lang="en-US"><voice name="en-US-JennyNeural">'), true);
 t("ssml: 특수문자 이스케이프", buildAzureSsml('A<B & "C"', "en", "en-US-JennyNeural").includes("A&lt;B &amp; &quot;C&quot;"), true);
+
+// ===== FAQ 정해진 답변 (src/faq.js) =====
+{
+  const id = (q) => { const r = matchFaq(q, /[가-힣]/.test(q) ? "ko" : "en"); return r ? r.id : null; };
+  t("faq: 수업 입장", id("수업 입장 어떻게 해요?"), "lesson-enter");
+  t("faq: 수업 연기", id("수업 연기하고 싶어요"), "lesson-change");
+  t("faq: 결제", id("결제는 어디서 하나요?"), "payment");
+  t("faq: 수강료", id("수강료 얼마예요?"), "price");
+  t("faq: 성적표", id("성적표 보고 싶어요"), "report");
+  t("faq: 비밀번호", id("비밀번호 바꾸고 싶어요"), "account");
+  t("faq: 영어 입장", id("How do I enter class?"), "lesson-enter");
+  t("faq: 영어 가격", id("How much is the tuition?"), "price");
+  // 애매하면 AI 로
+  t("faq: '얼마나 걸려요'는 가격 아님", id("얼마나 걸려요?"), null);
+  t("faq: '수업방법'은 입장 아님", id("수업방법이 궁금해요"), null);
+  t("faq: 결제 취소 → AI", id("결제 취소하고 싶어요"), null);
+  t("faq: 문제 상황 → AI", id("결제가 안돼요"), null);
+  t("faq: 교재비 → AI", id("교재비 얼마예요?"), null);
+  t("faq: 주제 두 개 → AI", id("수업 연기하고 결제도 하고 싶어요"), null);
+  t("faq: feedback 은 fee 아님", id("I want feedback"), null);
+  t("faq: 긴 질문 → AI", id("수업 입장하려고 하는데 우리 아이가 처음이라 어떻게 해야 할지 잘 모르겠어요 알려주세요"), null);
+  const r = matchFaq("성적표", "ko");
+  t("faq: go 코드", r.go, "report");
+  t("faq: 답변에 태그 없음", /\[\[/.test(r.answer), false);
+}
+{
+  const list = prewarmTexts();
+  t("prewarm: 중복 없음", new Set(list.map((x) => x.mode + x.text)).size, list.length);
+  t("prewarm: 모두 500자 이하", list.every((x) => x.text.length <= TTS_MAX_CHARS), true);
+  t("prewarm: 운영비서 인사 포함", list.some((x) => x.mode === "ops"), true);
+}
+
+// ===== 읽을 글자 정리 (캐시 키 통일) =====
+t("norm: 이모지 제거", normalizeTtsText("무엇을 도와 드릴까요? 😊"), "무엇을 도와 드릴까요?");
+t("norm: 공백 정리", normalizeTtsText("  네,   알겠어요!\n"), "네, 알겠어요!");
+t("norm: 마크다운 기호 제거", normalizeTtsText("**중요** 안내"), "중요 안내");
+t("norm: 📂 메뉴 안내", normalizeTtsText("📂 ‘학생관리’ 메뉴로 열어드릴까요?"), "‘학생관리’ 메뉴로 열어드릴까요?");
+
+// ===== Azure 사용량 / 약정 권장 =====
+t("usage: 월 (한국시간)", usageMonth(Date.UTC(2026, 9, 31, 16, 0)), "2026-11");
+t("usage: 적을 때 권장 안 함", usageReport("2026-10", { chars: 1000000, calls: 10 }).commit_recommended, false);
+t("usage: 6,400만 자 이상 권장", usageReport("2026-10", { chars: 64000000, calls: 10 }).commit_recommended, true);
+t("usage: 종량제 금액", usageReport("2026-10", { chars: 2000000, calls: 1 }).payg_usd, 30);
 
 // ===== 결과 출력 =====
 console.log("\n=== 망고아이 운영비서 test-harness ===");
