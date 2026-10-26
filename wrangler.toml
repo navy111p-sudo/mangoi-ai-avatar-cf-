@@ -14,7 +14,12 @@ binding = "AI"
 
 # 환경변수(시크릿)는 코드/깃허브에 적지 않습니다.
 # 챗/STT 는 위 Workers AI(AI 바인딩)로 동작하며 별도 키가 필요 없습니다.
-# TTS(Typecast)만 키가 필요합니다(없으면 브라우저 음성으로 자동 폴백):
+# TTS 는 키가 필요합니다(둘 다 없으면 브라우저 음성으로 자동 폴백):
+#   학생 상담사 = Azure Speech  → AZURE_SPEECH_KEY + AZURE_SPEECH_REGION (예: koreacentral)
+#                 (선택) AZURE_VOICE_KO / AZURE_VOICE_EN 로 목소리 변경
+#                 설정: 11_azure_key.bat 또는 npx wrangler secret put AZURE_SPEECH_KEY
+#   운영비서   = Typecast      → TYPECAST_API_KEY (아래)
+#   한쪽 키만 있으면 그 공급자로 두 모드 모두 동작합니다.
 # 운영 키:  Cloudflare 대시보드 → 이 Worker → Settings → Variables and Secrets → TYPECAST_API_KEY
 #   또는:  npx wrangler secret put TYPECAST_API_KEY
 # 로컬 키:  .dev.vars 파일의 TYPECAST_API_KEY (git 에 안 올라감)

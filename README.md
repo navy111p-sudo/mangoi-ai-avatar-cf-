@@ -4,7 +4,10 @@
 망고아이 웹/모바일 웹에 **iframe 위젯**으로 띄우는 패키지입니다.
 
 - 답변 생성(`/api/chat`): **Cloudflare Workers AI** (Llama 3.3) — 외부 API 키 불필요.
-- 음성 합성(`/api/tts`): **Typecast** — 키가 있으면 사용, 없으면 브라우저 한국어 TTS로 자동 폴백.
+- 음성 합성(`/api/tts`):
+  - 학생 상담사 → **Azure Speech** (100만 자당 $15, Typecast 대비 약 1/5 비용)
+  - 운영비서 → **Typecast** '재선' 목소리 (인사 영상과 동일)
+  - 한쪽 키만 있으면 그 공급자로 대체, 둘 다 없으면 브라우저 TTS로 자동 폴백.
 - 음성 인식(`/api/stt`): **Workers AI Whisper** — 외부 키 불필요.
 
 **핵심 안전 원칙**: 외부 키(Typecast 등)는 **Cloudflare 환경변수(Secret)**에만 넣습니다. 코드·깃허브·브라우저
@@ -30,11 +33,20 @@ mangoi-develop2/
 답변 생성·음성 인식은 키 없이 동작합니다. 더 자연스러운 한국어 음성을 원하면 Typecast 키를 준비하세요.
 키가 없으면 브라우저 내장 TTS로 자동 폴백되므로 필수는 아닙니다.
 
+## 1-1) Azure Speech 키 (학생 상담사 음성)
+1. Azure 포털 → Speech 리소스 → **Keys and Endpoint** 에서 **KEY 1** 과 **Location/Region**(예: `koreacentral`) 확인
+2. `11_azure_key.bat` 더블클릭 → 키와 리전 입력 → `3_재배포.bat`
+   (또는 `npx wrangler secret put AZURE_SPEECH_KEY` / `npx wrangler secret put AZURE_SPEECH_REGION`)
+3. (선택) 목소리 변경: `AZURE_VOICE_KO`(기본 `ko-KR-SunHiNeural`), `AZURE_VOICE_EN`(기본 `en-US-JennyNeural`)
+4. 확인: 응답 헤더 `X-TTS-Provider: azure`
+
 ## 2) (선택) 로컬 테스트
 ```bash
 npm install
 # (선택) Typecast 키를 쓸 경우에만: 프로젝트 루트에 .dev.vars 파일을 만들고 아래 한 줄 추가
 #   TYPECAST_API_KEY=발급받은_키
+#   AZURE_SPEECH_KEY=발급받은_키
+#   AZURE_SPEECH_REGION=koreacentral
 npm run dev                        # http://localhost:8787
 ```
 
@@ -86,4 +98,4 @@ npx wrangler secret put TYPECAST_API_KEY     # (선택) Typecast 키 입력 후 
 - **음성**: Typecast 키가 있으면 통일된 한국어 음성, 없으면 방문자 브라우저의 한국어 TTS로 읽어줍니다. 영어 답변은 브라우저 TTS 사용.
 - **HTTPS**: Workers 주소는 기본 HTTPS. 임베드하는 사이트도 HTTPS 여야 합니다.
 - **콜드스타트 없음**: Cloudflare는 잠들지 않아 첫 응답도 빠릅니다.
-- **비용**: Workers AI + Cloudflare 무료 플랜 한도 내에서 추가 비용 없음(Typecast는 별도 과금 정책).
+- **비용**: Workers AI는 하루 1만 뉴런 무료, 초과분 1,000뉴런당 $0.011. 음성은 Azure $15/100만 자, Typecast $70~90/100만 자(별도 과금).

@@ -11,6 +11,8 @@ import {
   extractGo,
   stripLeakedCodes,
   hasKorean,
+  pickTtsProvider,
+  buildAzureSsml,
 } from "./src/index.js";
 
 let pass = 0, fail = 0;
@@ -86,6 +88,25 @@ t("student go: 학습 현황 → mypage(전체메뉴 아님)", detectGo("자녀 
 // ===== stripLeakedCodes (본문에 흘린 코드 토큰 정리) =====
 t("strip: 괄호 코드 제거", /lesson-enter/.test(stripLeakedCodes("수업 입장은 (lesson-enter) 하세요")), false);
 t("strip: 일반 문장 보존", stripLeakedCodes("안녕하세요 반갑습니다"), "안녕하세요 반갑습니다");
+
+// ===== pickTtsProvider (TTS 공급자 선택) =====
+{
+  const AZ = { AZURE_SPEECH_KEY: "k", AZURE_SPEECH_REGION: "koreacentral" };
+  const TC = { TYPECAST_API_KEY: "t" };
+  const BOTH = { ...AZ, ...TC };
+  t("tts: 학생 + 둘 다 → azure", pickTtsProvider(BOTH, "student"), "azure");
+  t("tts: 운영비서 + 둘 다 → typecast", pickTtsProvider(BOTH, "ops"), "typecast");
+  t("tts: 학생 + Typecast만 → typecast", pickTtsProvider(TC, "student"), "typecast");
+  t("tts: 운영비서 + Azure만 → azure", pickTtsProvider(AZ, "ops"), "azure");
+  t("tts: 리전 없음 → Azure 미사용", pickTtsProvider({ AZURE_SPEECH_KEY: "k" }, "student"), null);
+  t("tts: 키 없음 → null", pickTtsProvider({}, "student"), null);
+}
+
+// ===== buildAzureSsml (Azure 음성 SSML) =====
+t("ssml: 한국어 기본 목소리", /ko-KR-SunHiNeural/.test(buildAzureSsml("안녕하세요", "ko", {})), true);
+t("ssml: 영어 기본 목소리", /en-US-JennyNeural/.test(buildAzureSsml("Hello", "en", {})), true);
+t("ssml: 목소리 환경변수 우선", /ko-KR-InJoonNeural/.test(buildAzureSsml("안녕", "ko", { AZURE_VOICE_KO: "ko-KR-InJoonNeural" })), true);
+t("ssml: 특수문자 이스케이프", buildAzureSsml("A<B & \"C\"", "en", {}).includes("A&lt;B &amp; &quot;C&quot;"), true);
 
 // ===== 결과 출력 =====
 console.log("\n=== 망고아이 운영비서 test-harness ===");
